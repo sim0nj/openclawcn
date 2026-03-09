@@ -7,25 +7,85 @@
   <meta name="description" content="让两个不同的 OpenClaw 实现进行国际象棋对战，可观战与复盘。" />
   <link rel="stylesheet" href="../assets/styles.css" />
   <style>
-    .wrap{display:grid;grid-template-columns: 520px 1fr;gap:16px;margin-top:18px}
-    .panel{border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.02);padding:16px}
-    .row{display:flex;gap:8px;margin:8px 0}
-    select,input,button{border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--text);border-radius:10px;padding:10px}
-    button{border:none;background:linear-gradient(135deg,var(--brand),var(--brand-600));color:#fff}
-    .board{width:504px;height:504px;display:grid;grid-template-columns: repeat(8, 1fr);grid-template-rows: repeat(8,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden}
-    .sq{display:flex;align-items:center;justify-content:center;font-size:34px}
-    .dark{background:#1b2444}
-    .light{background:#10162c}
-    .topbar{display:flex;justify-content:space-between;align-items:center}
-    .log{height:420px;overflow:auto;background:#0d1326;border-radius:10px;border:1px solid var(--border);padding:12px;font-family:ui-monospace,monospace;font-size:13px}
-    .note{color:var(--muted);font-size:13px}
-    .tag{display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(79,124,255,.15);margin-right:6px}
+    /* 页面特定样式 */
+    .chess-layout {
+      display: grid;
+      grid-template-columns: minmax(300px, 520px) 1fr;
+      gap: 24px;
+      margin-top: 24px;
+      align-items: start;
+    }
+    
+    .board-container {
+      background: #1a1a1a;
+      padding: 12px;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border);
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      aspect-ratio: 1/1;
+      border: none;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .sq {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(24px, 4vw, 42px);
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .sq.dark { background-color: #779556; color: #ebecd0; }
+    .sq.light { background-color: #ebecd0; color: #779556; }
+    
+    /* 覆盖输入框样式以适应侧边栏 */
+    .control-panel .row {
+      margin-bottom: 12px;
+    }
+    
+    .control-panel label {
+      min-width: 60px;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .log-container {
+      height: 100%;
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .log {
+      flex: 1;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.3);
+    }
+
+    @media (max-width: 850px) {
+      .chess-layout { grid-template-columns: 1fr; }
+      .board-container { max-width: 520px; margin: 0 auto; }
+    }
   </style>
 </head>
 <body>
   <header class="site-header">
     <div class="container nav">
-      <a class="brand" href="../"><span class="brand-badge"></span><span>OpenClaw 中文站</span></a>
+      <a class="brand" href="../">
+        <span class="brand-badge"></span>
+        <span>OpenClaw</span>
+      </a>
       <nav class="nav-links">
         <a href="../">首页</a>
         <a href="../docs/install.html">安装</a>
@@ -39,39 +99,62 @@
     </div>
   </header>
 
-  <main class="container wrap">
-    <section class="panel">
+  <main class="container chess-layout">
+    <section class="panel control-panel">
       <div class="topbar">
-        <h2 style="margin:0">国际象棋对战</h2>
-        <div id="meta" class="note"></div>
+        <h2 style="margin:0; font-size: 20px;">对局控制</h2>
+        <div id="meta" class="tag">准备就绪</div>
       </div>
-      <div id="board" class="board" aria-label="chess board"></div>
-      <div class="row">
-        <span class="tag">白方</span><input id="white" placeholder="如：openclaw" />
+      
+      <div class="board-container">
+        <div id="board" class="board" aria-label="chess board"></div>
       </div>
-      <div class="row">
-        <span class="tag">黑方</span><input id="black" placeholder="如：compatible-1" />
+      
+      <div style="margin-top: 24px;">
+        <div class="row">
+          <label>白方</label>
+          <input id="white" placeholder="Provider ID (如 openclaw)" value="openclaw" />
+        </div>
+        <div class="row">
+          <label>黑方</label>
+          <input id="black" placeholder="Provider ID (如 compatible-1)" value="compatible-1" />
+        </div>
+        <div class="row">
+          <label>超时(ms)</label>
+          <input id="timeout" type="number" value="5000" />
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px;">
+          <button id="start" class="btn primary">开始对战</button>
+          <button id="reset" class="btn">重置棋盘</button>
+        </div>
+        
+        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+          <div style="display: flex; gap: 8px;">
+            <button id="createRoom" class="btn" style="flex: 1;">创建房间邀请好友</button>
+          </div>
+          <input id="inviteLink" placeholder="邀请链接将出现在这里..." readonly style="margin-top: 8px; font-size: 12px; color: var(--text-tertiary);" />
+        </div>
       </div>
-      <div class="row">
-        <label class="tag">每步超时(ms)</label><input id="timeout" type="number" value="5000" />
-        <button id="start">开始对战</button>
-        <button id="reset">重置棋盘</button>
-      </div>
-      <div class="row">
-        <button id="createRoom">创建房间并邀请好友</button>
-        <input id="inviteLink" placeholder="邀请链接将出现在这里" readonly style="flex:1" />
-      </div>
-      <p class="note">说明：前端只负责展示，裁判与落子合法性由后端处理。后端 SSE 地址：/api/chess/matches/:id/stream</p>
     </section>
-    <aside class="panel">
-      <h3>对局日志</h3>
+
+    <aside class="panel log-container">
+      <div class="topbar">
+        <h3 style="margin:0; font-size: 18px;">对局日志</h3>
+        <span class="tag">实时</span>
+      </div>
       <div id="log" class="log" aria-live="polite"></div>
+      <div class="note" style="margin: 16px 0 0; font-size: 12px;">
+        说明：前端仅负责展示，裁判与规则由后端(Server)处理。
+        <br>SSE: /api/chess/matches/:id/stream
+      </div>
     </aside>
   </main>
 
   <footer class="site-footer">
     <div class="container">© <span id="y"></span> OpenClaw</div>
   </footer>
+  
   <script>
     document.getElementById('y').textContent = new Date().getFullYear();
     // 开发环境回退到本机 chess-server，线上由 Nginx 反代 /api/chess
@@ -123,10 +206,17 @@
           }
         }
       }
-      metaEl.textContent = `FEN: ${fen}`;
+      metaEl.textContent = `Turn: ${parts[1] === 'w' ? 'White' : 'Black'}`;
     }
 
-    function log(msg){ const t=new Date().toLocaleTimeString(); logEl.textContent += `[${t}] ${msg}\n`; logEl.scrollTop=logEl.scrollHeight; }
+    function log(msg){ 
+      const t = new Date().toLocaleTimeString(); 
+      const div = document.createElement('div');
+      div.style.marginBottom = '4px';
+      div.innerHTML = `<span style="color:var(--text-tertiary)">[${t}]</span> ${msg}`;
+      logEl.appendChild(div);
+      logEl.scrollTop = logEl.scrollHeight; 
+    }
 
     async function start(){
       const white = document.getElementById('white').value.trim() || 'openclaw';
@@ -150,9 +240,12 @@
         try{
           const e = JSON.parse(evt.data);
           if(e.type==='state'){ renderFEN(e.fen); }
-          else if(e.type==='move'){ log(`${e.turn}：${e.san}`); if(e.fen) renderFEN(e.fen); }
+          else if(e.type==='move'){ 
+            log(`<span style="color:${e.turn==='white'?'#fff':'#aaa'}">${e.turn}</span>: ${e.san}`); 
+            if(e.fen) renderFEN(e.fen); 
+          }
           else if(e.type==='status'){ log(e.message); }
-          else if(e.type==='result'){ log(`结果：${e.result}`); if(e.fen) renderFEN(e.fen); }
+          else if(e.type==='result'){ log(`结果：<span style="color:var(--accent)">${e.result}</span>`); if(e.fen) renderFEN(e.fen); }
           else { log(evt.data); }
         }catch{ log(evt.data); }
       };
@@ -164,13 +257,13 @@
       const myProvider = (document.getElementById('white').value.trim() || 'openclaw');
       const timeout = +document.getElementById('timeout').value || 5000;
       try{
-        const res = await fetch(`${API.replace('/api/chess','/api/chess')}/rooms`, {
+        const res = await fetch(`${API}/rooms`, {
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ side:'white', provider: myProvider, timeout })
         });
         if(!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        const link = `${location.origin}${location.pathname.replace('/chess/','/chess/')}?room=${encodeURIComponent(data.id)}&t=${encodeURIComponent(data.token)}`;
+        const link = `${location.origin}${location.pathname}?room=${encodeURIComponent(data.id)}&t=${encodeURIComponent(data.token)}`;
         document.getElementById('inviteLink').value = link;
         log(`房间已创建：${data.id}，邀请链接已生成`);
         // 订阅房间状态，等待对手加入
