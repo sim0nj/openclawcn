@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>使用指南 · OpenClaw 中文站</title>
   <meta name="description" content="OpenClaw 使用教程：核心概念、常用命令、配置、示例与排错。" />
+  <meta property="og:locale" content="zh_CN" />
+  <meta property="og:title" content="OpenClaw 使用指南" />
+  <meta property="og:description" content="连接聊天平台、配对批准与测试消息，掌握网关与体检命令。" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="OpenClaw 使用指南" />
+  <meta name="twitter:description" content="连接聊天平台、配对批准与测试消息，掌握网关与体检命令。" />
+  <link rel="alternate" hreflang="zh-CN" href="./usage.html" />
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
@@ -30,6 +37,9 @@
       <h4>章节导航</h4>
       <a href="#concepts" class="active">核心概念</a>
       <a href="#quickstart">快速上手</a>
+      <a href="#channels">连接聊天平台</a>
+      <a href="#security">安全与配对</a>
+      <a href="#message">发送测试消息</a>
       <a href="#commands">常用命令</a>
       <a href="#config">配置指南</a>
       <a href="#examples">实战示例</a>
@@ -48,17 +58,28 @@
       </ul>
 
       <h2 id="quickstart">快速上手</h2>
-<pre><code># 初始化工作区（在空目录或现有仓库中）
-openclaw init
+<pre><code># 运行配置向导（安装页完成后）
+openclaw onboard --install-daemon
 
-# 拉取示例模板（如适用）
-openclaw template pull basic
+# 检查网关状态并启动
+openclaw gateway status
+openclaw gateway --port 18789
+</code></pre>
 
-# 首次运行
-openclaw run
+      <h2 id="channels">连接聊天平台</h2>
+      <p>配对你的第一个聊天界面：</p>
+<pre><code># WhatsApp（二维码登录）
+openclaw channels login
+</code></pre>
+      <p>Telegram/Discord 等可使用向导配置 Token 或参考相应文档。</p>
 
-# 查看产物
-openclaw artifacts ls
+      <h2 id="security">安全与配对</h2>
+      <p>默认未知 DM 会返回简短代码，需批准后才处理消息：</p>
+<pre><code># 查看待批准的配对请求（示例：whatsapp）
+openclaw pairing list whatsapp
+
+# 批准配对，将 &lt;code&gt; 替换为实际代码
+openclaw pairing approve whatsapp &lt;code&gt;
 </code></pre>
 
       <h2 id="commands">常用命令</h2>
@@ -66,55 +87,32 @@ openclaw artifacts ls
 openclaw --help
 openclaw --version
 
-# 项目管理
-openclaw init                # 初始化
-openclaw config set k v      # 设置配置项
-openclaw config get k        # 查看配置
-
-# 任务执行
-openclaw run                 # 按默认管道执行
-openclaw run -p pipeline.yml # 指定管道
-openclaw run --dry-run       # 仅校验不执行
-
-# 产物与日志
-openclaw artifacts ls
-openclaw logs --tail 100
+# 网关与体检
+openclaw gateway status
+openclaw status
+openclaw health
+openclaw security audit --deep
 </code></pre>
 
       <h2 id="config">配置指南</h2>
-      <p>默认配置文件位于 <code>/etc/openclaw/config.yaml</code>（Linux）或用户目录下的 <code>~/.openclaw/config.yaml</code>。</p>
-<pre><code># config.yaml 示例（模板）
-telemetry: true
-concurrency: 4
-cache:
-  enabled: true
-  dir: ~/.cache/openclaw
-registries:
-  - name: public
-    url: https://registry.example.com
-</code></pre>
-      <p>企业环境请关闭遥测、调整并发与缓存目录，并配置私有 Registry。</p>
+      <p>核心配置位于 <code>~/.openclaw/</code>。重要路径：</p>
+      <ul>
+        <li>主配置：~/.openclaw/</li>
+        <li>OAuth 凭证：~/.openclaw/credentials/oauth.json</li>
+        <li>认证配置：~/.openclaw/agents/&lt;agentId&gt;/agent/auth-profiles.json</li>
+      </ul>
 
-      <h2 id="examples">实战示例</h2>
-<pre><code># 自定义管道（pipeline.yml）
-steps:
-  - name: prepare
-    run: openclaw prepare --input data/
-  - name: build
-    run: openclaw build --target x86_64
-  - name: verify
-    run: openclaw verify --level strict
-
-# 执行
-openclaw run -p pipeline.yml
+      <h2 id="message">发送测试消息</h2>
+<pre><code>openclaw message send --target +15555550123 --message "Hello from OpenClaw"
 </code></pre>
-      <p>更多场景示例（CI 集成、容器化、多节点）将持续在 <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a> 与文档更新。</p>
+      <p>若 <code>openclaw health</code> 显示未配置授权，请回到配置向导完成 OAuth/密钥设置。</p>
+      <p>更多场景示例（CI、容器化、多节点）将持续在 <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a> 更新。</p>
 
       <h2 id="troubleshoot">排错建议</h2>
       <ul>
         <li>遇到权限问题：优先使用非 root 用户，必要时为数据目录单独设定权限。</li>
-        <li>网络超时：检查代理与私有源配置，容器环境确认 DNS 与镜像可达。</li>
-        <li>命令不可用：确认 PATH 与安装路径；Windows 请在新开终端生效环境变量。</li>
+        <li>网络超时：检查代理；在服务器环境先完成 OAuth 再复制凭证。</li>
+        <li>Windows：优先使用 WSL2 以获得更好兼容性与性能。</li>
         <li>仍未解决：收集日志 <code>openclaw logs --since 10m</code>，在论坛附上环境信息与操作步骤。</li>
       </ul>
     </article>

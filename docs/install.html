@@ -4,7 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>安装指南 · OpenClaw 中文站</title>
-  <meta name="description" content="OpenClaw 安装指南：系统要求、在线/离线安装、Docker、包管理器与源码构建。" />
+  <meta name="description" content="OpenClaw 安装指南：5 分钟一键安装、配置向导、网关启动与验证。" />
+  <meta property="og:locale" content="zh_CN" />
+  <meta property="og:title" content="OpenClaw 安装指南" />
+  <meta property="og:description" content="一键脚本 + 配置向导：快速完成 OpenClaw 安装与网关验证。" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="OpenClaw 安装指南" />
+  <meta name="twitter:description" content="一键脚本 + 配置向导：快速完成 OpenClaw 安装与网关验证。" />
+  <link rel="alternate" hreflang="zh-CN" href="./install.html" />
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
@@ -29,54 +36,67 @@
     <aside class="sidebar">
       <h4>安装目录</h4>
       <a href="#requirements" class="active">系统要求</a>
-      <a href="#quickstart">快速开始</a>
-      <a href="#docker">Docker 部署</a>
-      <a href="#package">包管理器</a>
-      <a href="#source">源码构建</a>
-      <a href="#offline">离线安装</a>
-      <a href="#verify">安装验证</a>
+      <a href="#quickstart">一键安装</a>
+      <a href="#onboard">配置向导</a>
+      <a href="#gateway">启动网关</a>
+      <a href="#verify">验证与体检</a>
+      <a href="#optional">可选方案</a>
       <a href="#uninstall">卸载/升级</a>
     </aside>
     <article class="content">
       <h1>OpenClaw 安装指南</h1>
-      <p class="note">说明：以下为通用安装路径模板，已覆盖 macOS、Linux、Windows 及容器场景。若你已有官方二进制或私有源，请直接替换对应下载地址。</p>
+      <p class="note">按官方“快速开始”整理，优先推荐一键脚本与配置向导；Docker/源码等方式作为可选补充。</p>
 
       <h2 id="requirements">系统要求</h2>
       <ul>
-        <li>CPU：x86_64 或 arm64</li>
-        <li>内存：最低 2 GiB，推荐 4 GiB+</li>
-        <li>磁盘：空闲 500 MiB（不含数据目录）</li>
-        <li>操作系统：macOS 12+、Ubuntu 20.04+/Debian 11+、Windows 10/11</li>
-        <li>可选依赖：Git、Docker（用于容器化部署）、curl/wget、Node.js（如需前端工具）</li>
+        <li>Node.js ≥ 22</li>
+        <li>操作系统：macOS、Linux 或 Windows（推荐 WSL2）</li>
+        <li>可选：Brave Search API（启用网络搜索功能）</li>
       </ul>
 
-      <h2 id="quickstart">快速开始（官方二进制）</h2>
-      <p>从官方发布页下载对应平台的压缩包，解压并添加到 PATH：</p>
-<pre><code># macOS / Linux
-curl -L -o openclaw.tar.gz https://example.com/openclaw/releases/latest/openclaw-$(uname -s)-$(uname -m).tar.gz
-tar -xzf openclaw.tar.gz
-sudo install -m 0755 openclaw /usr/local/bin/openclaw
-
-# Windows (PowerShell)
-Invoke-WebRequest https://example.com/openclaw/releases/latest/openclaw-windows-x64.zip -OutFile openclaw.zip
-Expand-Archive openclaw.zip -DestinationPath $Env:ProgramFiles\\OpenClaw
-$Env:Path += ";$Env:ProgramFiles\\OpenClaw"
+      <h2 id="quickstart">一键安装</h2>
+      <p>推荐使用官方脚本进行自动安装：</p>
+<pre><code>curl -fsSL https://openclaw.ai/install.sh | bash
 </code></pre>
-      <p>替换示例地址为实际发布 URL。若采用企业内网镜像，请按内网规范替换域名。</p>
+      <p>脚本会检测并安装 Node.js 与依赖，免去手动配置。</p>
 
-      <h2 id="docker">Docker 部署</h2>
-      <p>适合快速试用或生产容器化环境：</p>
-<pre><code># 拉取镜像（示例仓库）
-docker pull registry.example.com/openclaw:latest
-
-# 运行（映射配置和数据目录）
-docker run -d --name openclaw \
-  -p 8080:8080 \
-  -v /etc/openclaw:/etc/openclaw \
-  -v /var/lib/openclaw:/var/lib/openclaw \
-  registry.example.com/openclaw:latest
+      <h2 id="onboard">配置向导</h2>
+      <p>安装后运行配置向导，完成网关、认证与聊天平台接入：</p>
+<pre><code>openclaw onboard --install-daemon
 </code></pre>
-      <p>如需 Kubernetes 部署，建议在 <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a> 下载官方 Helm Chart 或参考社区清单。</p>
+      <ul>
+        <li>网关类型：本地或远程</li>
+        <li>AI 模型认证：OpenAI（OAuth/API Key）或 Anthropic（推荐 API Key，亦支持 claude setup-token）</li>
+        <li>聊天平台：WhatsApp 二维码、Telegram/Discord Bot Token 等</li>
+        <li>守护进程：macOS 使用 launchd，Linux/WSL2 使用 systemd</li>
+      </ul>
+      <p>配置文件位置：</p>
+      <ul>
+        <li>主配置目录：~/.openclaw/</li>
+        <li>OAuth 凭证：~/.openclaw/credentials/oauth.json</li>
+        <li>认证配置：~/.openclaw/agents/&lt;agentId&gt;/agent/auth-profiles.json</li>
+      </ul>
+      <p>若在无显示器服务器部署，先在可用浏览器的机器完成 OAuth，再将 oauth.json 复制到服务器对应目录。</p>
+
+      <h2 id="gateway">启动网关</h2>
+      <p>网关负责处理所有消息：</p>
+<pre><code>openclaw gateway status
+openclaw gateway --port 18789
+</code></pre>
+
+      <h2 id="verify">验证与体检</h2>
+<pre><code>openclaw status
+openclaw health
+openclaw security audit --deep
+</code></pre>
+      <p>若命令不可用，请检查 PATH 并返回配置向导补全授权。</p>
+
+      <h2 id="optional">可选方案</h2>
+      <p>以下为进阶/企业环境常见选项（如需）：</p>
+      <ul>
+        <li>容器化与编排：使用自建镜像与 Helm Chart</li>
+        <li>源码构建与离线安装：在内网镜像与包仓库下完成</li>
+      </ul>
 
       <h2 id="package">包管理器安装</h2>
       <p>若已在公共/私有仓库发布包，可按如下方式安装：</p>
@@ -114,18 +134,7 @@ cd openclaw
       </ol>
       <p>如需企业级离线仓库（APT/YUM/NuGet/Nexus/Harbor），请参考 <a href="./faq.html">FAQ</a> 的“离线源搭建”。</p>
 
-      <h2 id="verify">安装验证</h2>
-<pre><code># 查看版本
-openclaw --version
-
-# 运行自检（示例）
-openclaw doctor
-
-# 启动服务（如适用）
-openclaw start
-openclaw status
-</code></pre>
-      <p>若命令不可用，请确认 PATH 是否包含安装目录，或进入 <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a> 搜索已解答的问题。</p>
+      <p>如需 Kubernetes 部署或离线方案，可在 <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a> 获取社区清单。</p>
 
       <h2 id="uninstall">卸载与升级</h2>
 <pre><code># 升级
@@ -135,7 +144,7 @@ openclaw upgrade
 openclaw stop
 openclaw uninstall
 </code></pre>
-      <p>生产环境升级前建议先在预生产环境回归验证，并做好数据备份。</p>
+      <p>生产环境升级前请在预生产验证并做好数据备份。</p>
     </article>
   </main>
 

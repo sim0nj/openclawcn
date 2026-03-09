@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>常见问题 · OpenClaw 中文站</title>
   <meta name="description" content="OpenClaw 常见问题：安装、使用、网络代理、离线源与日志定位。" />
+  <meta property="og:locale" content="zh_CN" />
+  <meta property="og:title" content="OpenClaw 常见问题" />
+  <meta property="og:description" content="授权/网络/WSL2/离线与日志收集等高频问题与解决步骤。" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="OpenClaw 常见问题" />
+  <meta name="twitter:description" content="授权/网络/WSL2/离线与日志收集等高频问题与解决步骤。" />
+  <link rel="alternate" hreflang="zh-CN" href="./faq.html" />
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
@@ -29,7 +36,9 @@
     <aside class="sidebar">
       <h4>问题索引</h4>
       <a href="#path" class="active">命令不可用</a>
+      <a href="#auth">授权与向导</a>
       <a href="#network">网络/代理</a>
+      <a href="#wsl2">Windows/WSL2</a>
       <a href="#offline">离线源搭建</a>
       <a href="#perm">权限问题</a>
       <a href="#logs">日志收集</a>
@@ -52,7 +61,20 @@ source ~/.bashrc
       <ul>
         <li>全局代理：设置 <code>HTTP_PROXY/HTTPS_PROXY/NO_PROXY</code> 环境变量。</li>
         <li>容器环境：在 Docker Daemon 或 Kubernetes 节点配置代理与镜像加速。</li>
-        <li>私有源：在 <code>config.yaml</code> 的 <code>registries</code> 增加内网地址与凭据。</li>
+        <li>无浏览器服务器：先在本地完成 OAuth，将 <code>~/.openclaw/credentials/oauth.json</code> 拷贝到服务器对应目录。</li>
+      </ul>
+
+      <h3 id="auth">“未配置授权”如何处理</h3>
+      <p>运行 <code>openclaw health</code> 如果提示未配置授权：</p>
+      <ol>
+        <li>执行 <code>openclaw onboard --install-daemon</code> 补全 OAuth/API Key。</li>
+        <li>如使用 WhatsApp/Telegram，请完成 <code>openclaw channels login</code> 与配对批准。</li>
+      </ol>
+
+      <h3 id="wsl2">Windows 最佳实践</h3>
+      <ul>
+        <li>推荐使用 WSL2 以获得更好兼容性与性能。</li>
+        <li>命令不可用时，在新开终端或重启 Shell 以刷新环境变量。</li>
       </ul>
 
       <h3 id="offline">如何搭建离线仓库</h3>
