@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>安装指南 · OpenClaw 中文站</title>
+  <meta name="description" content="OpenClaw 安装指南：系统要求、在线/离线安装、Docker、包管理器与源码构建。" />
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="../">
+        <span class="brand-badge"></span>
+        <span>OpenClaw 中文站</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../">首页</a>
+        <a href="./install.html" class="active">安装</a>
+        <a href="./usage.html">使用</a>
+        <a href="./faq.html">FAQ</a>
+        <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a>
+        <a class="cta" href="#" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container doc">
+    <aside class="sidebar">
+      <h4>安装目录</h4>
+      <a href="#requirements" class="active">系统要求</a>
+      <a href="#quickstart">快速开始</a>
+      <a href="#docker">Docker 部署</a>
+      <a href="#package">包管理器</a>
+      <a href="#source">源码构建</a>
+      <a href="#offline">离线安装</a>
+      <a href="#verify">安装验证</a>
+      <a href="#uninstall">卸载/升级</a>
+    </aside>
+    <article class="content">
+      <h1>OpenClaw 安装指南</h1>
+      <p class="note">说明：以下为通用安装路径模板，已覆盖 macOS、Linux、Windows 及容器场景。若你已有官方二进制或私有源，请直接替换对应下载地址。</p>
+
+      <h2 id="requirements">系统要求</h2>
+      <ul>
+        <li>CPU：x86_64 或 arm64</li>
+        <li>内存：最低 2 GiB，推荐 4 GiB+</li>
+        <li>磁盘：空闲 500 MiB（不含数据目录）</li>
+        <li>操作系统：macOS 12+、Ubuntu 20.04+/Debian 11+、Windows 10/11</li>
+        <li>可选依赖：Git、Docker（用于容器化部署）、curl/wget、Node.js（如需前端工具）</li>
+      </ul>
+
+      <h2 id="quickstart">快速开始（官方二进制）</h2>
+      <p>从官方发布页下载对应平台的压缩包，解压并添加到 PATH：</p>
+<pre><code># macOS / Linux
+curl -L -o openclaw.tar.gz https://example.com/openclaw/releases/latest/openclaw-$(uname -s)-$(uname -m).tar.gz
+tar -xzf openclaw.tar.gz
+sudo install -m 0755 openclaw /usr/local/bin/openclaw
+
+# Windows (PowerShell)
+Invoke-WebRequest https://example.com/openclaw/releases/latest/openclaw-windows-x64.zip -OutFile openclaw.zip
+Expand-Archive openclaw.zip -DestinationPath $Env:ProgramFiles\\OpenClaw
+$Env:Path += ";$Env:ProgramFiles\\OpenClaw"
+</code></pre>
+      <p>替换示例地址为实际发布 URL。若采用企业内网镜像，请按内网规范替换域名。</p>
+
+      <h2 id="docker">Docker 部署</h2>
+      <p>适合快速试用或生产容器化环境：</p>
+<pre><code># 拉取镜像（示例仓库）
+docker pull registry.example.com/openclaw:latest
+
+# 运行（映射配置和数据目录）
+docker run -d --name openclaw \
+  -p 8080:8080 \
+  -v /etc/openclaw:/etc/openclaw \
+  -v /var/lib/openclaw:/var/lib/openclaw \
+  registry.example.com/openclaw:latest
+</code></pre>
+      <p>如需 Kubernetes 部署，建议在 <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a> 下载官方 Helm Chart 或参考社区清单。</p>
+
+      <h2 id="package">包管理器安装</h2>
+      <p>若已在公共/私有仓库发布包，可按如下方式安装：</p>
+<pre><code># macOS (Homebrew)
+brew tap openclaw/tap
+brew install openclaw
+
+# Debian/Ubuntu (APT)
+echo "deb [trusted=yes] https://repo.example.com/openclaw stable main" | sudo tee /etc/apt/sources.list.d/openclaw.list
+sudo apt update && sudo apt install openclaw
+
+# RHEL/CentOS (YUM/DNF)
+sudo dnf config-manager --add-repo https://repo.example.com/openclaw/openclaw.repo
+sudo dnf install openclaw
+</code></pre>
+      <p>以上为模板仓库配置，请替换为真实仓库地址与 GPG Key。</p>
+
+      <h2 id="source">源码构建</h2>
+      <p>如需从源码构建（便于打补丁或内核定制）：</p>
+<pre><code>git clone https://github.com/your-org/openclaw.git
+cd openclaw
+# 选择你项目使用的语言/构建系统：
+# - Go:       make build
+# - Rust:     cargo build --release
+# - Node:     pnpm install && pnpm build
+# - Python:   pip install -r requirements.txt && python setup.py bdist
+</code></pre>
+      <p>请以实际仓库与构建脚本为准，并遵循公司代码审核与依赖镜像策略。</p>
+
+      <h2 id="offline">离线安装</h2>
+      <ol>
+        <li>在有网环境打包二进制和依赖（容器镜像/包缓存）。</li>
+        <li>通过离线介质（U 盘/内网文件服务）传输到目标机器。</li>
+        <li>按 <strong>快速开始</strong> 或 <strong>包管理器</strong> 步骤安装；容器环境导入镜像：<code>docker load -i openclaw.tar</code>。</li>
+      </ol>
+      <p>如需企业级离线仓库（APT/YUM/NuGet/Nexus/Harbor），请参考 <a href="./faq.html">FAQ</a> 的“离线源搭建”。</p>
+
+      <h2 id="verify">安装验证</h2>
+<pre><code># 查看版本
+openclaw --version
+
+# 运行自检（示例）
+openclaw doctor
+
+# 启动服务（如适用）
+openclaw start
+openclaw status
+</code></pre>
+      <p>若命令不可用，请确认 PATH 是否包含安装目录，或进入 <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a> 搜索已解答的问题。</p>
+
+      <h2 id="uninstall">卸载与升级</h2>
+<pre><code># 升级
+openclaw upgrade
+
+# 卸载（保留数据目录请先备份）
+openclaw stop
+openclaw uninstall
+</code></pre>
+      <p>生产环境升级前建议先在预生产环境回归验证，并做好数据备份。</p>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div>© <span id="y"></span> OpenClaw</div>
+    </div>
+  </footer>
+  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+</body>
+</html>

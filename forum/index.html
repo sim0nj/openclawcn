@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>论坛 · OpenClaw 中文站</title>
+  <meta name="description" content="OpenClaw 社区论坛：提问讨论、经验分享、插件发布与案例展示。" />
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="../">
+        <span class="brand-badge"></span>
+        <span>OpenClaw 中文站</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../">首页</a>
+        <a href="../docs/install.html">安装</a>
+        <a href="../docs/usage.html">使用</a>
+        <a href="../docs/faq.html">FAQ</a>
+        <a href="./" class="active">论坛</a>
+        <a class="cta" href="#" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <span class="lead">OpenClaw 社区</span>
+      <h1>讨论、分享、构建生态</h1>
+      <p>建议在提问前搜索是否已有解答；发帖请附上系统信息、版本与重现步骤，便于快速定位。</p>
+      <div class="hero-actions">
+        <a class="btn primary" href="#" id="forumLink" target="_blank" rel="noopener">进入官方论坛</a>
+        <a class="btn" href="#deploy">自建论坛指南</a>
+        <a class="btn" href="#rules">发帖规范</a>
+      </div>
+    </section>
+
+    <section class="content">
+      <h2 id="deploy">推荐：Discourse 自建方案</h2>
+      <p>Discourse 是成熟的开源论坛系统，支持 SSO、私有部署与高性能缓存。示例部署方式如下（请在域名与邮箱设置处替换为你的信息）：</p>
+<pre><code># 简化版 docker-compose.yml（示意）
+version: "3.9"
+services:
+  app:
+    image: discourse/base:2.0.202
+    container_name: discourse
+    restart: unless-stopped
+    environment:
+      - DISCOURSE_HOSTNAME=forum.example.com
+      - DISCOURSE_SMTP_ADDRESS=smtp.example.com
+      - DISCOURSE_SMTP_USER=user@example.com
+      - DISCOURSE_SMTP_PASSWORD=secret
+    volumes:
+      - ./data:/var/www/discourse
+    ports:
+      - "80:80"
+      - "443:443"
+</code></pre>
+      <p>生产环境建议使用官方 <a href="https://github.com/discourse/discourse_docker" target="_blank" rel="noopener">discourse_docker</a> 或 Helm Chart，并接入对象存储与外部数据库以便扩展。</p>
+
+      <h3>单点登录（SSO）</h3>
+      <ul>
+        <li>企业 SSO：OAuth2/OIDC（支持 Azure AD、GitHub、GitLab、Gitee 等）。</li>
+        <li>站点级 SSO：可将中文站登录与论坛绑定，实现一键登录。</li>
+      </ul>
+
+      <h2 id="rules">发帖规范</h2>
+      <ul>
+        <li>标题简明扼要，包含模块/版本/关键症状。</li>
+        <li>正文提供环境、配置片段、错误日志及最小可复现步骤。</li>
+        <li>如为功能建议，请注明业务背景与预期收益；欢迎附上草图或 API 提案。</li>
+      </ul>
+
+      <h2>临时讨论（可选接入）</h2>
+      <p>若暂未开通官方论坛，可临时在 GitHub Discussions 使用“问答/建议”分栏，并在此页放置入口。也可接入 Slack/Discord/飞书等；建议长期归档在论坛。</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div>© <span id="y"></span> OpenClaw</div>
+    </div>
+  </footer>
+  <script>
+    document.getElementById('y').textContent = new Date().getFullYear();
+    // 如果已有论坛地址，请将下行替换为实际链接
+    document.getElementById('forumLink').href = 'https://forum.example.com/';
+  </script>
+</body>
+</html>

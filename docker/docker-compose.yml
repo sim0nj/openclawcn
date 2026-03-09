@@ -1,0 +1,8 @@
+services:
+  openclaw-cn-site:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "80:80"
+    restart: unless-stopped

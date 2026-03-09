@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>OpenClaw 中文站</title>
+  <meta name="description" content="OpenClaw 中文站：安装教程、使用指南、FAQ 与论坛入口。" />
+  <link rel="stylesheet" href="./assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="./">
+        <span class="brand-badge"></span>
+        <span>OpenClaw 中文站</span>
+      </a>
+      <nav class="nav-links">
+        <a href="./" class="active">首页</a>
+        <a href="./docs/install.html">安装</a>
+        <a href="./docs/usage.html">使用</a>
+        <a href="./docs/faq.html">FAQ</a>
+        <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a>
+        <a class="cta" href="#" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <span class="lead">OpenClaw 官方中文资源</span>
+      <h1>更快上手，更稳交付</h1>
+      <p>这里提供完整的中文安装教程、使用指南、常见问题与社区讨论。面向首次接触与生产部署的不同阶段，按实战路径组织内容。</p>
+      <div class="hero-actions">
+        <a class="btn primary" href="./docs/install.html">立即安装</a>
+        <a class="btn" href="./docs/usage.html">查阅使用指南</a>
+        <a class="btn" href="https://forum.example.com/" target="_blank" rel="noopener">加入论坛</a>
+      </div>
+    </section>
+
+    <section class="grid" aria-label="快速入口">
+      <article class="card">
+        <h3>安装指引</h3>
+        <p>从零到可用环境：系统要求、依赖、在线/离线包、典型环境差异。</p>
+        <a class="more" href="./docs/install.html">查看安装步骤 →</a>
+      </article>
+      <article class="card">
+        <h3>使用教程</h3>
+        <p>核心概念、常用命令/接口、最佳实践与排错提示，覆盖常见场景。</p>
+        <a class="more" href="./docs/usage.html">打开使用指南 →</a>
+      </article>
+      <article class="card">
+        <h3>常见问题</h3>
+        <p>汇总高频问题与官方建议，优先给出可复制的解决步骤与诊断方法。</p>
+        <a class="more" href="./docs/faq.html">查看 FAQ →</a>
+      </article>
+      <article class="card">
+        <h3>社区论坛</h3>
+        <p>提问、分享经验、发布插件与案例。支持 SSO/私有部署接入。</p>
+        <a class="more" href="https://forum.example.com/" target="_blank" rel="noopener">前往论坛 →</a>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div>© <span id="y"></span> OpenClaw. 保留所有权利。</div>
+      <div>文档采用 MIT 许可；站点内容遵循 CC BY 4.0。</div>
+    </div>
+  </footer>
+  <script>
+    document.getElementById('y').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
