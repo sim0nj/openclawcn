@@ -6,3 +6,19 @@ services:
     ports:
       - "80:80"
     restart: unless-stopped
+  chess:
+    build:
+      context: ../chess-server
+      dockerfile: Dockerfile
+    expose:
+      - "3100"
+    environment:
+      - GATEWAY_URL=http://gateway:3200
+    restart: unless-stopped
+  gateway:
+    build:
+      context: ../gateway-server
+      dockerfile: Dockerfile
+    expose:
+      - "3200"
+    restart: unless-stopped

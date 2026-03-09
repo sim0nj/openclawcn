@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>国际象棋对战 · OpenClaw</title>
+  <meta name="description" content="让两个不同的 OpenClaw 实现进行国际象棋对战，可观战与复盘。" />
+  <link rel="stylesheet" href="../assets/styles.css" />
+  <style>
+    .wrap{display:grid;grid-template-columns: 520px 1fr;gap:16px;margin-top:18px}
+    .panel{border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.02);padding:16px}
+    .row{display:flex;gap:8px;margin:8px 0}
+    select,input,button{border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--text);border-radius:10px;padding:10px}
+    button{border:none;background:linear-gradient(135deg,var(--brand),var(--brand-600));color:#fff}
+    .board{width:504px;height:504px;display:grid;grid-template-columns: repeat(8, 1fr);grid-template-rows: repeat(8,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+    .sq{display:flex;align-items:center;justify-content:center;font-size:34px}
+    .dark{background:#1b2444}
+    .light{background:#10162c}
+    .topbar{display:flex;justify-content:space-between;align-items:center}
+    .log{height:420px;overflow:auto;background:#0d1326;border-radius:10px;border:1px solid var(--border);padding:12px;font-family:ui-monospace,monospace;font-size:13px}
+    .note{color:var(--muted);font-size:13px}
+    .tag{display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(79,124,255,.15);margin-right:6px}
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="../"><span class="brand-badge"></span><span>OpenClaw 中文站</span></a>
+      <nav class="nav-links">
+        <a href="../">首页</a>
+        <a href="../docs/install.html">安装</a>
+        <a href="../docs/usage.html">使用</a>
+        <a href="../docs/faq.html">FAQ</a>
+        <a href="../chat/">聊天</a>
+        <a href="./" class="active">对战</a>
+        <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a>
+        <a class="cta" href="#" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container wrap">
+    <section class="panel">
+      <div class="topbar">
+        <h2 style="margin:0">国际象棋对战</h2>
+        <div id="meta" class="note"></div>
+      </div>
+      <div id="board" class="board" aria-label="chess board"></div>
+      <div class="row">
+        <span class="tag">白方</span><input id="white" placeholder="如：openclaw" />
+      </div>
+      <div class="row">
+        <span class="tag">黑方</span><input id="black" placeholder="如：compatible-1" />
+      </div>
+      <div class="row">
+        <label class="tag">每步超时(ms)</label><input id="timeout" type="number" value="5000" />
+        <button id="start">开始对战</button>
+        <button id="reset">重置棋盘</button>
+      </div>
+      <div class="row">
+        <button id="createRoom">创建房间并邀请好友</button>
+        <input id="inviteLink" placeholder="邀请链接将出现在这里" readonly style="flex:1" />
+      </div>
+      <p class="note">说明：前端只负责展示，裁判与落子合法性由后端处理。后端 SSE 地址：/api/chess/matches/:id/stream</p>
+    </section>
+    <aside class="panel">
+      <h3>对局日志</h3>
+      <div id="log" class="log" aria-live="polite"></div>
+    </aside>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">© <span id="y"></span> OpenClaw</div>
+  </footer>
+  <script>
+    document.getElementById('y').textContent = new Date().getFullYear();
+    // 开发环境回退到本机 chess-server，线上由 Nginx 反代 /api/chess
+    const API = (location.port && location.port !== '3100')
+      ? 'http://localhost:3100/api/chess'
+      : '/api/chess';
+    const boardEl = document.getElementById('board');
+    const logEl = document.getElementById('log');
+    const metaEl = document.getElementById('meta');
+
+    const PIECES = {
+      'p':'♟','r':'♜','n':'♞','b':'♝','q':'♛','k':'♚',
+      'P':'♙','R':'♖','N':'♘','B':'♗','Q':'♕','K':'♔'
+    };
+
+    function initBoard(){
+      boardEl.innerHTML = '';
+      for(let r=7;r>=0;r--){
+        for(let c=0;c<8;c++){
+          const div = document.createElement('div');
+          div.className = 'sq ' + ((r+c)%2?'dark':'light');
+          div.dataset.square = 'abcdefgh'[c] + (r+1);
+          boardEl.appendChild(div);
+        }
+      }
+    }
+
+    function renderFEN(fen){
+      const parts = fen.split(' ');
+      const board = parts[0];
+      const rows = board.split('/');
+      const squares = Array.from(boardEl.children);
+      // clear
+      squares.forEach(s=>s.textContent='');
+      // map 8x8 from a8 to h1, but we filled from a1 to h8 visually, so map accordingly
+      let idx = 0;
+      for(let r=0;r<8;r++){
+        const row = rows[r];
+        let file = 0;
+        for(const ch of row){
+          if(/\d/.test(ch)){ file += parseInt(ch,10); }
+          else{
+            // position index from a8 (top-left) => convert to our DOM which is a1..h8
+            const col = file;
+            const domRank = 7 - r; // 0-based rank from a1
+            const domIdx = domRank*8 + col;
+            squares[domIdx].textContent = PIECES[ch] || '';
+            file++;
+          }
+        }
+      }
+      metaEl.textContent = `FEN: ${fen}`;
+    }
+
+    function log(msg){ const t=new Date().toLocaleTimeString(); logEl.textContent += `[${t}] ${msg}\n`; logEl.scrollTop=logEl.scrollHeight; }
+
+    async function start(){
+      const white = document.getElementById('white').value.trim() || 'openclaw';
+      const black = document.getElementById('black').value.trim() || 'compatible-1';
+      const timeout = +document.getElementById('timeout').value || 5000;
+      try{
+        const res = await fetch(`${API}/matches`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ white, black, timeout })
+        });
+        if(!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        subscribe(data.id);
+      }catch(e){ log('创建失败：'+e.message); }
+    }
+
+    function subscribe(id){
+      log(`对局创建：${id}，连接事件流…`);
+      const es = new EventSource(`${API}/matches/${encodeURIComponent(id)}/stream`);
+      es.onmessage = (evt)=>{
+        try{
+          const e = JSON.parse(evt.data);
+          if(e.type==='state'){ renderFEN(e.fen); }
+          else if(e.type==='move'){ log(`${e.turn}：${e.san}`); if(e.fen) renderFEN(e.fen); }
+          else if(e.type==='status'){ log(e.message); }
+          else if(e.type==='result'){ log(`结果：${e.result}`); if(e.fen) renderFEN(e.fen); }
+          else { log(evt.data); }
+        }catch{ log(evt.data); }
+      };
+      es.onerror = ()=> log('事件流中断或后端未部署');
+    }
+
+    // 房间：创建/邀请/加入
+    async function createRoom(){
+      const myProvider = (document.getElementById('white').value.trim() || 'openclaw');
+      const timeout = +document.getElementById('timeout').value || 5000;
+      try{
+        const res = await fetch(`${API.replace('/api/chess','/api/chess')}/rooms`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ side:'white', provider: myProvider, timeout })
+        });
+        if(!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        const link = `${location.origin}${location.pathname.replace('/chess/','/chess/')}?room=${encodeURIComponent(data.id)}&t=${encodeURIComponent(data.token)}`;
+        document.getElementById('inviteLink').value = link;
+        log(`房间已创建：${data.id}，邀请链接已生成`);
+        // 订阅房间状态，等待对手加入
+        const es = new EventSource(`${API}/rooms/${encodeURIComponent(data.id)}/stream`);
+        es.onmessage = (evt)=>{
+          try{
+            const e = JSON.parse(evt.data);
+            if(e.type==='waiting'){ log(`等待对手加入… 白:${e.white?'✔':''} 黑:${e.black?'✔':''}`); }
+            if(e.type==='started' && e.matchId){ log(`对局开始：${e.matchId}`); subscribe(e.matchId); es.close(); }
+          }catch{ /* ignore */ }
+        };
+      }catch(e){ log('创建房间失败：'+e.message); }
+    }
+
+    async function tryJoinFromURL(){
+      const params = new URLSearchParams(location.search);
+      const room = params.get('room');
+      const token = params.get('t');
+      if(!room || !token) return;
+      const provider = (document.getElementById('black').value.trim() || 'compatible-1');
+      try{
+        const res = await fetch(`${API}/rooms/${encodeURIComponent(room)}/join`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ token, provider })
+        });
+        if(!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        const es = new EventSource(`${API}/rooms/${encodeURIComponent(room)}/stream`);
+        es.onmessage = (evt)=>{
+          try{
+            const e = JSON.parse(evt.data);
+            if(e.type==='waiting'){ log(`已加入房间，等待开始… 白:${e.white?'✔':''} 黑:${e.black?'✔':''}`); }
+            if(e.type==='started' && e.matchId){ log(`对局开始：${e.matchId}`); subscribe(e.matchId); es.close(); }
+          }catch{ /* ignore */ }
+        };
+        log(`已加入房间：${room}`);
+      }catch(e){ log('加入房间失败：'+e.message); }
+    }
+
+    document.getElementById('start').onclick = start;
+    document.getElementById('reset').onclick = ()=> renderFEN('rn1qkbnr/pppb1ppp/4p3/3p4/3P4/2N1PN2/PPP2PPP/R1BQKB1R w KQkq - 0 1'); // random mid-fen for fun
+    document.getElementById('createRoom').onclick = createRoom;
+    initBoard();
+    renderFEN('rn1qkbnr/pppb1ppp/4p3/3p4/3P4/2N1PN2/PPP2PPP/R1BQKB1R w KQkq - 0 1');
+    tryJoinFromURL();
+  </script>
+</body>
+</html>
