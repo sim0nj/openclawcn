@@ -73,6 +73,80 @@
       background: rgba(0,0,0,0.3);
     }
 
+    .room-grid {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .room-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .room-headline {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .seat-banner {
+      border-radius: var(--radius-md);
+      padding: 12px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+    }
+
+    .seat-banner.white-seat {
+      border-color: rgba(255,255,255,0.45);
+    }
+
+    .seat-banner.black-seat {
+      border-color: rgba(120,120,120,0.7);
+    }
+
+    .seat-banner h4 {
+      margin: 0 0 6px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .seat-banner .seat-agent {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .seat-banner .seat-model {
+      font-size: 13px;
+      color: var(--accent);
+      margin-bottom: 2px;
+    }
+
+    .seat-banner .seat-provider {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .room-card strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .room-card p {
+      margin: 4px 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .muted {
+      color: var(--text-tertiary);
+      font-size: 12px;
+    }
+
     @media (max-width: 850px) {
       .chess-layout { grid-template-columns: 1fr; }
       .board-container { max-width: 520px; margin: 0 auto; }
@@ -91,7 +165,6 @@
         <a href="../docs/install.html">安装</a>
         <a href="../docs/usage.html">使用</a>
         <a href="../docs/faq.html">FAQ</a>
-        <a href="../chat/">聊天</a>
         <a href="./" class="active">对战</a>
         <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a>
         <a class="cta" href="#" target="_blank" rel="noopener">GitHub</a>
@@ -105,6 +178,7 @@
         <h2 style="margin:0; font-size: 20px;">对局控制</h2>
         <div id="meta" class="tag">准备就绪</div>
       </div>
+      <div id="roomHeadline" class="room-headline"></div>
       
       <div class="board-container">
         <div id="board" class="board" aria-label="chess board"></div>
@@ -113,7 +187,7 @@
       <div style="margin-top: 24px;">
         <div class="row">
           <label>白方</label>
-          <input id="white" placeholder="Provider ID (如 openclaw)" value="openclaw" />
+          <input id="white" placeholder="Provider ID (如 botpy)" value="botpy" />
         </div>
         <div class="row">
           <label>黑方</label>
@@ -130,10 +204,25 @@
         </div>
         
         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-          <div style="display: flex; gap: 8px;">
-            <button id="createRoom" class="btn" style="flex: 1;">创建房间邀请好友</button>
+          <div class="row">
+            <label>裁判</label>
+            <input id="refereeName" placeholder="人类裁判名" value="房主裁判" />
           </div>
-          <input id="inviteLink" placeholder="邀请链接将出现在这里..." readonly style="margin-top: 8px; font-size: 12px; color: var(--text-tertiary);" />
+          <div class="row">
+            <label>Agent</label>
+            <input id="agentName" placeholder="Agent 名称" value="OpenClaw Bot" />
+          </div>
+          <div class="row">
+            <label>模型</label>
+            <input id="agentModel" placeholder="模型标识，如 openclaw-v1" value="openclaw-v1" />
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="createRoom" class="btn" style="flex: 1;">裁判创建房间</button>
+            <button id="startRoomMatch" class="btn primary" style="flex: 1;" disabled>由裁判开始对局</button>
+          </div>
+          <input id="whiteInviteLink" placeholder="白方邀请链接将出现在这里..." readonly style="margin-top: 8px; font-size: 12px; color: var(--text-tertiary);" />
+          <input id="blackInviteLink" placeholder="黑方邀请链接将出现在这里..." readonly style="margin-top: 8px; font-size: 12px; color: var(--text-tertiary);" />
+          <div id="roomState" class="room-grid"></div>
         </div>
       </div>
     </section>
@@ -164,6 +253,11 @@
     const boardEl = document.getElementById('board');
     const logEl = document.getElementById('log');
     const metaEl = document.getElementById('meta');
+    const roomHeadlineEl = document.getElementById('roomHeadline');
+    const roomStateEl = document.getElementById('roomState');
+    const startRoomMatchBtn = document.getElementById('startRoomMatch');
+    let activeRoom = null;
+    let roomEventSource = null;
 
     const PIECES = {
       'p':'♟','r':'♜','n':'♞','b':'♝','q':'♛','k':'♚',
@@ -172,11 +266,11 @@
 
     function initBoard(){
       boardEl.innerHTML = '';
-      for(let r=7;r>=0;r--){
-        for(let c=0;c<8;c++){
+      for(let r=0; r<8; r++){
+        for(let c=0; c<8; c++){
           const div = document.createElement('div');
-          div.className = 'sq ' + ((r+c)%2?'dark':'light');
-          div.dataset.square = 'abcdefgh'[c] + (r+1);
+          div.className = 'sq ' + ((r+c)%2 ? 'dark' : 'light');
+          div.dataset.square = 'abcdefgh'[c] + (8-r);
           boardEl.appendChild(div);
         }
       }
@@ -189,18 +283,15 @@
       const squares = Array.from(boardEl.children);
       // clear
       squares.forEach(s=>s.textContent='');
-      // map 8x8 from a8 to h1, but we filled from a1 to h8 visually, so map accordingly
-      let idx = 0;
-      for(let r=0;r<8;r++){
+      
+      for(let r=0; r<8; r++){
         const row = rows[r];
         let file = 0;
         for(const ch of row){
-          if(/\d/.test(ch)){ file += parseInt(ch,10); }
-          else{
-            // position index from a8 (top-left) => convert to our DOM which is a1..h8
-            const col = file;
-            const domRank = 7 - r; // 0-based rank from a1
-            const domIdx = domRank*8 + col;
+          if(/\d/.test(ch)){ 
+            file += parseInt(ch,10); 
+          } else {
+            const domIdx = r * 8 + file;
             squares[domIdx].textContent = PIECES[ch] || '';
             file++;
           }
@@ -216,6 +307,120 @@
       div.innerHTML = `<span style="color:var(--text-tertiary)">[${t}]</span> ${msg}`;
       logEl.appendChild(div);
       logEl.scrollTop = logEl.scrollHeight; 
+    }
+
+    function escapeHtml(value){
+      return String(value || '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      })[ch]);
+    }
+
+    function participantMarkup(title, seat){
+      if(!seat){
+        return `
+          <div class="room-card">
+            <strong>${title}</strong>
+            <p>等待 Agent 入场</p>
+          </div>
+        `;
+      }
+      return `
+        <div class="room-card">
+          <strong>${title}</strong>
+          <p>Agent: ${escapeHtml(seat.agentName || '-')}</p>
+          <p>Provider: ${escapeHtml(seat.provider || '-')}</p>
+          <p>Model: ${escapeHtml(seat.model || '未填写')}</p>
+        </div>
+      `;
+    }
+
+    function seatBannerMarkup(side, seat){
+      const sideLabel = side === 'white' ? '白方席位' : '黑方席位';
+      const seatClass = side === 'white' ? 'white-seat' : 'black-seat';
+      if(!seat){
+        return `
+          <div class="seat-banner ${seatClass}">
+            <h4>${sideLabel}</h4>
+            <div class="seat-agent">等待 Agent</div>
+            <div class="seat-model">Model: 未入场</div>
+            <div class="seat-provider">Provider: -</div>
+          </div>
+        `;
+      }
+      return `
+        <div class="seat-banner ${seatClass}">
+          <h4>${sideLabel}</h4>
+          <div class="seat-agent">${escapeHtml(seat.agentName || '-')}</div>
+          <div class="seat-model">Model: ${escapeHtml(seat.model || '未填写')}</div>
+          <div class="seat-provider">Provider: ${escapeHtml(seat.provider || '-')}</div>
+        </div>
+      `;
+    }
+
+    function renderRoom(room){
+      activeRoom = room;
+      if(!room){
+        roomHeadlineEl.innerHTML = '';
+        roomStateEl.innerHTML = '';
+        startRoomMatchBtn.disabled = true;
+        return;
+      }
+      const statusText = room.status === 'started'
+        ? '对局已开始'
+        : room.status === 'ready'
+          ? '双方已就位，等待裁判开始'
+          : '等待双方 Agent 入场';
+      metaEl.textContent = statusText;
+      startRoomMatchBtn.disabled = !(room.canStart && room.refereeToken);
+      roomHeadlineEl.innerHTML = `
+        ${seatBannerMarkup('white', room.seats?.white)}
+        ${seatBannerMarkup('black', room.seats?.black)}
+      `;
+      roomStateEl.innerHTML = `
+        <div class="room-card">
+          <strong>房间 ${escapeHtml(room.id)}</strong>
+          <p>裁判: ${escapeHtml(room.referee?.name || '未命名')}</p>
+          <p>状态: ${escapeHtml(statusText)}</p>
+          <p class="muted">房间内可看到 Agent 名称、Provider 与模型。</p>
+        </div>
+        ${participantMarkup('白方席位', room.seats?.white)}
+        ${participantMarkup('黑方席位', room.seats?.black)}
+      `;
+    }
+
+    function openRoomStream(roomId){
+      if(roomEventSource) roomEventSource.close();
+      roomEventSource = new EventSource(`${API}/rooms/${encodeURIComponent(roomId)}/stream`);
+      roomEventSource.onmessage = (evt)=>{
+        try{
+          const e = JSON.parse(evt.data);
+          if(e.type === 'room'){
+            const room = { ...e, refereeToken: activeRoom?.refereeToken || null };
+            const alreadyStarted = activeRoom?.matchId;
+            renderRoom(room);
+            const white = room.seats?.white;
+            const black = room.seats?.black;
+            log(
+              `房间状态：${escapeHtml(room.status)}`
+              + `<br>白方：<b>${escapeHtml(white?.agentName || '(等待中)')}</b> / ${escapeHtml(white?.model || '未填写')} / ${escapeHtml(white?.provider || '-')}`
+              + `<br>黑方：<b>${escapeHtml(black?.agentName || '(等待中)')}</b> / ${escapeHtml(black?.model || '未填写')} / ${escapeHtml(black?.provider || '-')}`
+            );
+            if(room.matchId && room.matchId !== alreadyStarted){
+              log(`对局开始：${room.matchId}`);
+              subscribe(room.matchId);
+            }
+          } else if(e.type === 'status') {
+            log(e.message);
+          }
+        }catch{
+          log(evt.data);
+        }
+      };
+      roomEventSource.onerror = ()=> log('房间事件流中断或后端未部署');
     }
 
     async function start(){
@@ -252,29 +457,30 @@
       es.onerror = ()=> log('事件流中断或后端未部署');
     }
 
-    // 房间：创建/邀请/加入
+    // 房间：裁判创建 / Agent 加入 / 裁判开始
     async function createRoom(){
-      const myProvider = (document.getElementById('white').value.trim() || 'openclaw');
       const timeout = +document.getElementById('timeout').value || 5000;
+      const refereeName = document.getElementById('refereeName').value.trim() || '人类裁判';
       try{
         const res = await fetch(`${API}/rooms`, {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ side:'white', provider: myProvider, timeout })
+          body: JSON.stringify({ refereeName, timeout })
         });
         if(!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        const link = `${location.origin}${location.pathname}?room=${encodeURIComponent(data.id)}&t=${encodeURIComponent(data.token)}`;
-        document.getElementById('inviteLink').value = link;
-        log(`房间已创建：${data.id}，邀请链接已生成`);
-        // 订阅房间状态，等待对手加入
-        const es = new EventSource(`${API}/rooms/${encodeURIComponent(data.id)}/stream`);
-        es.onmessage = (evt)=>{
-          try{
-            const e = JSON.parse(evt.data);
-            if(e.type==='waiting'){ log(`等待对手加入… 白:${e.white?'✔':''} 黑:${e.black?'✔':''}`); }
-            if(e.type==='started' && e.matchId){ log(`对局开始：${e.matchId}`); subscribe(e.matchId); es.close(); }
-          }catch{ /* ignore */ }
-        };
+        document.getElementById('whiteInviteLink').value = `${location.origin}${location.pathname}?room=${encodeURIComponent(data.id)}&side=white&t=${encodeURIComponent(data.inviteTokens.white)}`;
+        document.getElementById('blackInviteLink').value = `${location.origin}${location.pathname}?room=${encodeURIComponent(data.id)}&side=black&t=${encodeURIComponent(data.inviteTokens.black)}`;
+        renderRoom({
+          id: data.id,
+          refereeToken: data.refereeToken,
+          referee: { name: refereeName },
+          seats: { white: null, black: null },
+          status: 'waiting',
+          canStart: false,
+          matchId: null
+        });
+        openRoomStream(data.id);
+        log(`裁判房间已创建：${data.id}，白方和黑方邀请链接已生成`);
       }catch(e){ log('创建房间失败：'+e.message); }
     }
 
@@ -282,30 +488,47 @@
       const params = new URLSearchParams(location.search);
       const room = params.get('room');
       const token = params.get('t');
-      if(!room || !token) return;
-      const provider = (document.getElementById('black').value.trim() || 'compatible-1');
+      const side = params.get('side');
+      if(!room || !token || !side) return;
+      const provider = ((side === 'white')
+        ? document.getElementById('white').value.trim()
+        : document.getElementById('black').value.trim()) || 'compatible-1';
+      const agentName = document.getElementById('agentName').value.trim() || provider;
+      const model = document.getElementById('agentModel').value.trim();
       try{
         const res = await fetch(`${API}/rooms/${encodeURIComponent(room)}/join`, {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ token, provider })
+          body: JSON.stringify({ token, side, provider, agentName, model })
+        });
+        if(!res.ok) throw new Error(await res.text());
+        openRoomStream(room);
+        log(`已作为${side === 'white' ? '白方' : '黑方'} Agent 加入房间：${room}<br>Agent：<b>${escapeHtml(agentName)}</b><br>Model：${escapeHtml(model || '未填写')}<br>Provider：${escapeHtml(provider)}`);
+      }catch(e){ log('加入房间失败：'+e.message); }
+    }
+
+    async function startRoomMatch(){
+      if(!activeRoom?.id || !activeRoom?.refereeToken){
+        log('当前不是裁判视角，无法开始对局');
+        return;
+      }
+      try{
+        const res = await fetch(`${API}/rooms/${encodeURIComponent(activeRoom.id)}/start`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ token: activeRoom.refereeToken })
         });
         if(!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        const es = new EventSource(`${API}/rooms/${encodeURIComponent(room)}/stream`);
-        es.onmessage = (evt)=>{
-          try{
-            const e = JSON.parse(evt.data);
-            if(e.type==='waiting'){ log(`已加入房间，等待开始… 白:${e.white?'✔':''} 黑:${e.black?'✔':''}`); }
-            if(e.type==='started' && e.matchId){ log(`对局开始：${e.matchId}`); subscribe(e.matchId); es.close(); }
-          }catch{ /* ignore */ }
-        };
-        log(`已加入房间：${room}`);
-      }catch(e){ log('加入房间失败：'+e.message); }
+        log(`裁判已开始对局：${data.matchId}`);
+      }catch(e){
+        log('裁判开始对局失败：' + e.message);
+      }
     }
 
     document.getElementById('start').onclick = start;
     document.getElementById('reset').onclick = ()=> renderFEN('rn1qkbnr/pppb1ppp/4p3/3p4/3P4/2N1PN2/PPP2PPP/R1BQKB1R w KQkq - 0 1'); // random mid-fen for fun
     document.getElementById('createRoom').onclick = createRoom;
+    startRoomMatchBtn.onclick = startRoomMatch;
     initBoard();
     renderFEN('rn1qkbnr/pppb1ppp/4p3/3p4/3P4/2N1PN2/PPP2PPP/R1BQKB1R w KQkq - 0 1');
     tryJoinFromURL();

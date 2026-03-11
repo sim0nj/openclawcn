@@ -12,7 +12,8 @@ const matches = new Map();
 const GATEWAY_URL = process.env.GATEWAY_URL || ''; // 可配置统一网关
 const rooms = new Map();
 
-app.post('/api/chess/matches', (req, res) => {
+app.get('/', (_req, res) => res.json({ service: 'chess-server', status: 'ok', endpoints: ['/matches', '/rooms'] }));
+app.post('/matches', (req, res) => {
   const { white = 'openclaw', black = 'compatible-1', timeout = 5000 } = req.body || {};
   const id = 'chess_' + nanoid(8);
   const chess = new Chess();
@@ -27,7 +28,7 @@ app.post('/api/chess/matches', (req, res) => {
   runMatch(m).catch(() => {});
 });
 
-app.get('/api/chess/matches/:id/stream', (req, res) => {
+app.get('/matches/:id/stream', (req, res) => {
   const m = matches.get(req.params.id);
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -43,24 +44,38 @@ app.get('/api/chess/matches/:id/stream', (req, res) => {
   req.on('close', () => m.listeners.delete(send));
 });
 
-// 房间：创建/订阅/加入（双方就位后自动开赛）
-app.post('/api/chess/rooms', (req, res) => {
-  const { side = 'white', provider = 'openclaw', timeout = 5000 } = req.body || {};
-  if (!['white', 'black'].includes(side)) return res.status(400).json({ error: 'side must be white or black' });
+// 房间：裁判创建，双方 Agent 分别加入，由裁判手动开赛
+app.post('/rooms', (req, res) => {
+  const { refereeName = '人类裁判', timeout = 5000 } = req.body || {};
   const id = 'room_' + nanoid(8);
-  const token = nanoid(10);
   const room = {
-    id, token, timeout,
-    white: side === 'white' ? provider : null,
-    black: side === 'black' ? provider : null,
+    id,
+    timeout,
+    refereeToken: nanoid(12),
+    inviteTokens: {
+      white: nanoid(12),
+      black: nanoid(12),
+    },
+    referee: {
+      name: refereeName,
+      role: 'referee',
+    },
+    seats: {
+      white: null,
+      black: null,
+    },
     listeners: new Set(),
     matchId: null,
   };
   rooms.set(id, room);
-  res.json({ id, token });
+  res.json({
+    id,
+    refereeToken: room.refereeToken,
+    inviteTokens: room.inviteTokens,
+  });
 });
 
-app.get('/api/chess/rooms/:id/stream', (req, res) => {
+app.get('/rooms/:id/stream', (req, res) => {
   const room = rooms.get(req.params.id);
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -69,35 +84,77 @@ app.get('/api/chess/rooms/:id/stream', (req, res) => {
   const send = (e) => res.write(`data: ${JSON.stringify(e)}\n\n`);
   if (!room) { send({ type: 'status', message: 'room not found' }); return res.end(); }
   room.listeners.add(send);
-  send({ type: 'waiting', white: !!room.white, black: !!room.black });
-  if (room.matchId) send({ type: 'started', matchId: room.matchId });
+  send(roomSnapshot(room));
   req.on('close', () => room.listeners.delete(send));
 });
 
-app.post('/api/chess/rooms/:id/join', (req, res) => {
+app.post('/rooms/:id/join', (req, res) => {
   const room = rooms.get(req.params.id);
   if (!room) return res.status(404).json({ error: 'room not found' });
-  const { token, provider = 'compatible-1' } = req.body || {};
-  if (token !== room.token) return res.status(403).json({ error: 'invalid token' });
-  if (room.matchId) return res.json({ matchId: room.matchId });
-  if (!room.white) room.white = provider;
-  else if (!room.black) room.black = provider;
-  else return res.status(409).json({ error: 'room full' });
-  broadcastRoom(room, { type: 'waiting', white: !!room.white, black: !!room.black });
-  if (room.white && room.black && !room.matchId) {
-    const id = 'chess_' + nanoid(8);
-    const chess = new Chess();
-    const m = { id, white: room.white, black: room.black, timeout: room.timeout, chess, listeners: new Set(), stopped: false };
-    matches.set(id, m);
-    room.matchId = id;
-    broadcastRoom(room, { type: 'started', matchId: id });
-    runMatch(m).catch(() => {});
+  const { token, side, provider = 'compatible-1', agentName = provider, model = '' } = req.body || {};
+  if (!['white', 'black'].includes(side)) return res.status(400).json({ error: 'side must be white or black' });
+  if (token !== room.inviteTokens[side]) return res.status(403).json({ error: 'invalid token' });
+  if (room.matchId) return res.json({ ok: true, matchId: room.matchId, room: roomSnapshot(room) });
+  if (room.seats[side]) return res.status(409).json({ error: `${side} seat already occupied` });
+
+  room.seats[side] = {
+    side,
+    provider,
+    agentName,
+    model,
+    joinedAt: Date.now(),
+  };
+
+  broadcastRoom(room, roomSnapshot(room));
+  res.json({ ok: true, matchId: room.matchId || null, room: roomSnapshot(room) });
+});
+
+app.post('/rooms/:id/start', (req, res) => {
+  const room = rooms.get(req.params.id);
+  if (!room) return res.status(404).json({ error: 'room not found' });
+  const { token } = req.body || {};
+  if (token !== room.refereeToken) return res.status(403).json({ error: 'invalid referee token' });
+  if (room.matchId) return res.json({ ok: true, matchId: room.matchId, room: roomSnapshot(room) });
+  if (!room.seats.white || !room.seats.black) {
+    return res.status(409).json({ error: 'both seats must be occupied before starting' });
   }
-  res.json({ ok: true, matchId: room.matchId || null });
+
+  const id = 'chess_' + nanoid(8);
+  const chess = new Chess();
+  const m = {
+    id,
+    white: room.seats.white.provider,
+    black: room.seats.black.provider,
+    timeout: room.timeout,
+    chess,
+    listeners: new Set(),
+    stopped: false
+  };
+  matches.set(id, m);
+  room.matchId = id;
+  broadcastRoom(room, roomSnapshot(room));
+  runMatch(m).catch(() => {});
+  res.json({ ok: true, matchId: id, room: roomSnapshot(room) });
 });
 
 function broadcastRoom(room, evt) {
   room.listeners.forEach(fn => fn(evt));
+}
+
+function roomSnapshot(room) {
+  return {
+    type: 'room',
+    id: room.id,
+    status: room.matchId ? 'started' : (room.seats.white && room.seats.black ? 'ready' : 'waiting'),
+    timeout: room.timeout,
+    matchId: room.matchId,
+    canStart: Boolean(!room.matchId && room.seats.white && room.seats.black),
+    referee: room.referee,
+    seats: {
+      white: room.seats.white,
+      black: room.seats.black,
+    }
+  };
 }
 
 function broadcast(m, evt) {

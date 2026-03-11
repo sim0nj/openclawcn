@@ -65,6 +65,7 @@ app.post('/move', async (req, res) => {
   return res.json({ move: san });
 });
 
+app.get('/', (_req, res) => res.json({ service: 'gateway', status: 'ok', endpoints: ['/move', '/healthz'] }));
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
 app.listen(3200, () => console.log('Gateway server on :3200'));
