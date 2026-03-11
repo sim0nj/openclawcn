@@ -22,6 +22,9 @@
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow-lg);
       border: 1px solid var(--border);
+      width: 100%;
+      max-width: 520px;
+      box-sizing: border-box;
     }
 
     .board {
@@ -29,6 +32,7 @@
       grid-template-columns: repeat(8, 1fr);
       grid-template-rows: repeat(8, 1fr);
       aspect-ratio: 1/1;
+      width: 100%;
       border: none;
       border-radius: 4px;
       overflow: hidden;
@@ -150,6 +154,7 @@
     @media (max-width: 850px) {
       .chess-layout { grid-template-columns: 1fr; }
       .board-container { max-width: 520px; margin: 0 auto; }
+      .room-headline { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -209,17 +214,14 @@
             <input id="refereeName" placeholder="人类裁判名" value="房主裁判" />
           </div>
           <div class="row">
-            <label>Agent</label>
-            <input id="agentName" placeholder="Agent 名称" value="OpenClaw Bot" />
-          </div>
-          <div class="row">
-            <label>模型</label>
-            <input id="agentModel" placeholder="模型标识，如 openclaw-v1" value="openclaw-v1" />
+            <label>说明</label>
+            <input value="Agent 名称与模型由 provider 的 /metadata 接口自动识别" readonly />
           </div>
           <div style="display: flex; gap: 8px;">
             <button id="createRoom" class="btn" style="flex: 1;">裁判创建房间</button>
             <button id="startRoomMatch" class="btn primary" style="flex: 1;" disabled>由裁判开始对局</button>
           </div>
+          <input id="refereeInviteLink" placeholder="裁判专用链接将出现在这里..." readonly style="margin-top: 8px; font-size: 12px; color: var(--text-tertiary);" />
           <input id="whiteInviteLink" placeholder="白方邀请链接将出现在这里..." readonly style="margin-top: 8px; font-size: 12px; color: var(--text-tertiary);" />
           <input id="blackInviteLink" placeholder="黑方邀请链接将出现在这里..." readonly style="margin-top: 8px; font-size: 12px; color: var(--text-tertiary);" />
           <div id="roomState" class="room-grid"></div>
@@ -333,7 +335,10 @@
           <strong>${title}</strong>
           <p>Agent: ${escapeHtml(seat.agentName || '-')}</p>
           <p>Provider: ${escapeHtml(seat.provider || '-')}</p>
-          <p>Model: ${escapeHtml(seat.model || '未填写')}</p>
+          <p>Model: ${escapeHtml(seat.model || '未探测')}</p>
+          ${seat.vendor ? `<p>Vendor: ${escapeHtml(seat.vendor)}</p>` : ''}
+          ${seat.version ? `<p>Version: ${escapeHtml(seat.version)}</p>` : ''}
+          <p>来源: ${escapeHtml(metadataSourceText(seat.metadataSource))}</p>
         </div>
       `;
     }
@@ -355,10 +360,16 @@
         <div class="seat-banner ${seatClass}">
           <h4>${sideLabel}</h4>
           <div class="seat-agent">${escapeHtml(seat.agentName || '-')}</div>
-          <div class="seat-model">Model: ${escapeHtml(seat.model || '未填写')}</div>
+          <div class="seat-model">Model: ${escapeHtml(seat.model || '未探测')}</div>
+          ${seat.vendor ? `<div class="seat-provider">Vendor: ${escapeHtml(seat.vendor)}</div>` : ''}
           <div class="seat-provider">Provider: ${escapeHtml(seat.provider || '-')}</div>
         </div>
       `;
+    }
+
+    function metadataSourceText(source){
+      if(source === 'agent-metadata') return 'agent metadata';
+      return '未知';
     }
 
     function renderRoom(room){
@@ -385,33 +396,46 @@
           <strong>房间 ${escapeHtml(room.id)}</strong>
           <p>裁判: ${escapeHtml(room.referee?.name || '未命名')}</p>
           <p>状态: ${escapeHtml(statusText)}</p>
-          <p class="muted">房间内可看到 Agent 名称、Provider 与模型。</p>
+          <p class="muted">${room.refereeToken ? '当前页面拥有裁判权限，可开始对局。' : '当前页面没有裁判令牌，只能观战或作为 Agent 加入。'}</p>
         </div>
         ${participantMarkup('白方席位', room.seats?.white)}
         ${participantMarkup('黑方席位', room.seats?.black)}
       `;
     }
 
+    function withToken(url, token){
+      if(!token) return url;
+      const u = new URL(url, location.origin);
+      u.searchParams.set('token', token);
+      return u.toString();
+    }
+
     function openRoomStream(roomId){
       if(roomEventSource) roomEventSource.close();
-      roomEventSource = new EventSource(`${API}/rooms/${encodeURIComponent(roomId)}/stream`);
+      roomEventSource = new EventSource(withToken(`${API}/rooms/${encodeURIComponent(roomId)}/stream`, activeRoom?.accessToken));
       roomEventSource.onmessage = (evt)=>{
         try{
           const e = JSON.parse(evt.data);
           if(e.type === 'room'){
-            const room = { ...e, refereeToken: activeRoom?.refereeToken || null };
+            const room = {
+              ...e,
+              refereeToken: activeRoom?.refereeToken || null,
+              accessToken: activeRoom?.accessToken || null
+            };
             const alreadyStarted = activeRoom?.matchId;
             renderRoom(room);
             const white = room.seats?.white;
             const black = room.seats?.black;
             log(
               `房间状态：${escapeHtml(room.status)}`
-              + `<br>白方：<b>${escapeHtml(white?.agentName || '(等待中)')}</b> / ${escapeHtml(white?.model || '未填写')} / ${escapeHtml(white?.provider || '-')}`
-              + `<br>黑方：<b>${escapeHtml(black?.agentName || '(等待中)')}</b> / ${escapeHtml(black?.model || '未填写')} / ${escapeHtml(black?.provider || '-')}`
+              + `<br>白方：<b>${escapeHtml(white?.agentName || '(等待中)')}</b> / ${escapeHtml(white?.model || '未探测')} / ${escapeHtml(white?.provider || '-')}`
+              + ` / ${escapeHtml(metadataSourceText(white?.metadataSource))}`
+              + `<br>黑方：<b>${escapeHtml(black?.agentName || '(等待中)')}</b> / ${escapeHtml(black?.model || '未探测')} / ${escapeHtml(black?.provider || '-')}`
+              + ` / ${escapeHtml(metadataSourceText(black?.metadataSource))}`
             );
             if(room.matchId && room.matchId !== alreadyStarted){
               log(`对局开始：${room.matchId}`);
-              subscribe(room.matchId);
+              subscribe(room.matchId, room.accessToken || activeRoom?.accessToken);
             }
           } else if(e.type === 'status') {
             log(e.message);
@@ -438,9 +462,9 @@
       }catch(e){ log('创建失败：'+e.message); }
     }
 
-    function subscribe(id){
+    function subscribe(id, token){
       log(`对局创建：${id}，连接事件流…`);
-      const es = new EventSource(`${API}/matches/${encodeURIComponent(id)}/stream`);
+      const es = new EventSource(withToken(`${API}/matches/${encodeURIComponent(id)}/stream`, token));
       es.onmessage = (evt)=>{
         try{
           const e = JSON.parse(evt.data);
@@ -468,11 +492,13 @@
         });
         if(!res.ok) throw new Error(await res.text());
         const data = await res.json();
+        document.getElementById('refereeInviteLink').value = `${location.origin}${location.pathname}?room=${encodeURIComponent(data.id)}&role=referee&rt=${encodeURIComponent(data.refereeToken)}`;
         document.getElementById('whiteInviteLink').value = `${location.origin}${location.pathname}?room=${encodeURIComponent(data.id)}&side=white&t=${encodeURIComponent(data.inviteTokens.white)}`;
         document.getElementById('blackInviteLink').value = `${location.origin}${location.pathname}?room=${encodeURIComponent(data.id)}&side=black&t=${encodeURIComponent(data.inviteTokens.black)}`;
         renderRoom({
           id: data.id,
           refereeToken: data.refereeToken,
+          accessToken: data.refereeToken,
           referee: { name: refereeName },
           seats: { white: null, black: null },
           status: 'waiting',
@@ -489,21 +515,47 @@
       const room = params.get('room');
       const token = params.get('t');
       const side = params.get('side');
+      const role = params.get('role');
+      const refereeToken = params.get('rt');
+      if(room && role === 'referee' && refereeToken){
+        renderRoom({
+          id: room,
+          refereeToken,
+          accessToken: refereeToken,
+          referee: { name: document.getElementById('refereeName').value.trim() || '人类裁判' },
+          seats: { white: null, black: null },
+          status: 'waiting',
+          canStart: false,
+          matchId: null
+        });
+        openRoomStream(room);
+        log(`已作为裁判进入房间：${room}`);
+        return;
+      }
       if(!room || !token || !side) return;
       const provider = ((side === 'white')
         ? document.getElementById('white').value.trim()
         : document.getElementById('black').value.trim()) || 'compatible-1';
-      const agentName = document.getElementById('agentName').value.trim() || provider;
-      const model = document.getElementById('agentModel').value.trim();
+      activeRoom = { id: room, accessToken: token };
       try{
         const res = await fetch(`${API}/rooms/${encodeURIComponent(room)}/join`, {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ token, side, provider, agentName, model })
+          body: JSON.stringify({ token, side, provider })
         });
-        if(!res.ok) throw new Error(await res.text());
+        if(!res.ok) {
+          const text = await res.text();
+          throw new Error(text);
+        }
         openRoomStream(room);
-        log(`已作为${side === 'white' ? '白方' : '黑方'} Agent 加入房间：${room}<br>Agent：<b>${escapeHtml(agentName)}</b><br>Model：${escapeHtml(model || '未填写')}<br>Provider：${escapeHtml(provider)}`);
-      }catch(e){ log('加入房间失败：'+e.message); }
+        log(`已作为${side === 'white' ? '白方' : '黑方'} Agent 加入房间：${room}<br>Provider：${escapeHtml(provider)}<br>平台正在读取 agent metadata...`);
+      }catch(e){
+        let message = e.message || 'join failed';
+        try {
+          const parsed = JSON.parse(message);
+          message = parsed.error || message;
+        } catch { /* plain text */ }
+        log('加入房间失败：' + escapeHtml(message || '该 agent 未提供有效 metadata，无法进入私密对局'));
+      }
     }
 
     async function startRoomMatch(){

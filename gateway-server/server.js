@@ -17,6 +17,80 @@ for (const [k, v] of Object.entries(process.env)) {
   }
 }
 
+const METADATA_TIMEOUT_MS = 5000;
+
+function metadataUrlFor(upstream) {
+  if (!upstream) return '';
+  return upstream.replace(/\/move\/?$/, '/metadata');
+}
+
+function createHttpError(status, error) {
+  const err = new Error(error);
+  err.status = status;
+  return err;
+}
+
+function validateMetadataPayload(data) {
+  if (!data || typeof data !== 'object') {
+    throw createHttpError(422, 'provider metadata must be a JSON object');
+  }
+  if (typeof data.agentName !== 'string' || !data.agentName.trim()) {
+    throw createHttpError(422, 'provider metadata.agentName is required');
+  }
+  if (typeof data.model !== 'string' || !data.model.trim()) {
+    throw createHttpError(422, 'provider metadata.model is required');
+  }
+  if (data.vendor != null && (typeof data.vendor !== 'string' || !data.vendor.trim())) {
+    throw createHttpError(422, 'provider metadata.vendor must be a non-empty string');
+  }
+  if (data.version != null && (typeof data.version !== 'string' || !data.version.trim())) {
+    throw createHttpError(422, 'provider metadata.version must be a non-empty string');
+  }
+  if (data.capabilities != null && !Array.isArray(data.capabilities)) {
+    throw createHttpError(422, 'provider metadata.capabilities must be an array');
+  }
+  return {
+    agentName: data.agentName.trim(),
+    model: data.model.trim(),
+    vendor: typeof data.vendor === 'string' ? data.vendor.trim() : '',
+    version: typeof data.version === 'string' ? data.version.trim() : '',
+    capabilities: Array.isArray(data.capabilities)
+      ? data.capabilities.filter(item => typeof item === 'string' && item.trim()).map(item => item.trim())
+      : []
+  };
+}
+
+async function providerInfo(name) {
+  const provider = (name || '').toLowerCase();
+  const upstream = providerEndpoints[provider];
+  if (!upstream) {
+    throw createHttpError(404, `provider ${provider || 'unknown'} is not configured`);
+  }
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), METADATA_TIMEOUT_MS);
+  try {
+    const r = await fetch(metadataUrlFor(upstream), { signal: ctrl.signal });
+    if (!r.ok) {
+      throw createHttpError(422, `provider metadata request failed with status ${r.status}`);
+    }
+    const validated = validateMetadataPayload(await r.json());
+    return {
+      ...validated,
+      provider,
+      metadataSource: 'agent-metadata'
+    };
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw createHttpError(422, 'provider metadata request timed out');
+    }
+    if (error.status) throw error;
+    throw createHttpError(422, `provider metadata unavailable: ${error.message}`);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // 策略库（演示用）：对不同 provider 名字映射不同策略
 function choosePolicyMove(provider, fen) {
   const chess = new Chess(fen);
@@ -65,8 +139,16 @@ app.post('/move', async (req, res) => {
   return res.json({ move: san });
 });
 
-app.get('/', (_req, res) => res.json({ service: 'gateway', status: 'ok', endpoints: ['/move', '/healthz'] }));
+app.get('/providers/:provider', async (req, res) => {
+  try {
+    const info = await providerInfo(req.params.provider);
+    res.json(info);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message || 'provider metadata failed' });
+  }
+});
+
+app.get('/', (_req, res) => res.json({ service: 'gateway', status: 'ok', endpoints: ['/move', '/providers/:provider', '/healthz'] }));
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
 app.listen(3200, () => console.log('Gateway server on :3200'));
-

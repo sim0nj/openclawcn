@@ -21,7 +21,8 @@ app.post('/matches', (req, res) => {
     id, white, black, timeout,
     chess,
     listeners: new Set(),
-    stopped: false
+    stopped: false,
+    accessTokens: null
   };
   matches.set(id, m);
   res.json({ id });
@@ -37,6 +38,10 @@ app.get('/matches/:id/stream', (req, res) => {
   const send = (e) => res.write(`data: ${JSON.stringify(e)}\n\n`);
   if (!m) {
     send({ type: 'status', message: 'match not found' });
+    return res.end();
+  }
+  if (!isAuthorizedMatchViewer(m, req.query.token)) {
+    send({ type: 'status', message: 'match access denied' });
     return res.end();
   }
   m.listeners.add(send);
@@ -83,31 +88,48 @@ app.get('/rooms/:id/stream', (req, res) => {
   res.flushHeaders?.();
   const send = (e) => res.write(`data: ${JSON.stringify(e)}\n\n`);
   if (!room) { send({ type: 'status', message: 'room not found' }); return res.end(); }
+  if (!isAuthorizedRoomViewer(room, req.query.token)) {
+    send({ type: 'status', message: 'room access denied' });
+    return res.end();
+  }
   room.listeners.add(send);
   send(roomSnapshot(room));
   req.on('close', () => room.listeners.delete(send));
 });
 
 app.post('/rooms/:id/join', (req, res) => {
+  joinRoom(req, res).catch(err => {
+    res.status(err.status || 500).json({ error: err.message || 'join failed' });
+  });
+});
+
+async function joinRoom(req, res) {
   const room = rooms.get(req.params.id);
   if (!room) return res.status(404).json({ error: 'room not found' });
-  const { token, side, provider = 'compatible-1', agentName = provider, model = '' } = req.body || {};
+  const { token, side, provider = 'compatible-1' } = req.body || {};
   if (!['white', 'black'].includes(side)) return res.status(400).json({ error: 'side must be white or black' });
   if (token !== room.inviteTokens[side]) return res.status(403).json({ error: 'invalid token' });
   if (room.matchId) return res.json({ ok: true, matchId: room.matchId, room: roomSnapshot(room) });
   if (room.seats[side]) return res.status(409).json({ error: `${side} seat already occupied` });
 
+  const metadata = await detectProviderInfo(provider);
+
   room.seats[side] = {
     side,
     provider,
-    agentName,
-    model,
-    joinedAt: Date.now(),
+    agentName: metadata.agentName,
+    model: metadata.model,
+    vendor: metadata.vendor,
+    version: metadata.version,
+    capabilities: metadata.capabilities,
+    metadataSource: metadata.metadataSource,
+    metadataVerifiedAt: Date.now(),
+    joinedAt: Date.now()
   };
 
   broadcastRoom(room, roomSnapshot(room));
   res.json({ ok: true, matchId: room.matchId || null, room: roomSnapshot(room) });
-});
+}
 
 app.post('/rooms/:id/start', (req, res) => {
   const room = rooms.get(req.params.id);
@@ -128,7 +150,8 @@ app.post('/rooms/:id/start', (req, res) => {
     timeout: room.timeout,
     chess,
     listeners: new Set(),
-    stopped: false
+    stopped: false,
+    accessTokens: new Set([room.refereeToken, room.inviteTokens.white, room.inviteTokens.black])
   };
   matches.set(id, m);
   room.matchId = id;
@@ -139,6 +162,15 @@ app.post('/rooms/:id/start', (req, res) => {
 
 function broadcastRoom(room, evt) {
   room.listeners.forEach(fn => fn(evt));
+}
+
+function isAuthorizedRoomViewer(room, token) {
+  return Boolean(token) && [room.refereeToken, room.inviteTokens.white, room.inviteTokens.black].includes(token);
+}
+
+function isAuthorizedMatchViewer(match, token) {
+  if (!match.accessTokens) return true;
+  return Boolean(token) && match.accessTokens.has(token);
 }
 
 function roomSnapshot(room) {
@@ -179,6 +211,30 @@ async function chooseMoveViaGateway(provider, fen, turn, timeout) {
   } catch {
     return null;
   }
+}
+
+async function detectProviderInfo(provider) {
+  if (!GATEWAY_URL) {
+    const err = new Error('gateway metadata lookup is not configured');
+    err.status = 422;
+    throw err;
+  }
+
+  const r = await fetch(`${GATEWAY_URL}/providers/${encodeURIComponent(provider)}`);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const err = new Error(data.error || '该 agent 未提供有效 metadata，无法进入私密对局');
+    err.status = r.status >= 400 && r.status < 500 ? r.status : 422;
+    throw err;
+  }
+  return {
+    agentName: data.agentName,
+    model: data.model,
+    vendor: data.vendor || '',
+    version: data.version || '',
+    capabilities: Array.isArray(data.capabilities) ? data.capabilities : [],
+    metadataSource: data.metadataSource || 'agent-metadata'
+  };
 }
 
 function randomMove(chess) {

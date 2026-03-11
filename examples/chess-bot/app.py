@@ -8,6 +8,16 @@ app = Flask(__name__)
 # 如果你有 Stockfish 引擎，可以取消注释并修改路径
 # engine = chess.engine.SimpleEngine.popen_uci("/usr/bin/stockfish")
 
+@app.route('/metadata', methods=['GET'])
+def metadata():
+    return jsonify({
+        'agentName': 'Example Chess Bot',
+        'model': 'random-policy',
+        'vendor': 'example',
+        'version': 'v1',
+        'capabilities': ['move', 'metadata']
+    })
+
 @app.route('/move', methods=['POST'])
 def get_move():
     data = request.json

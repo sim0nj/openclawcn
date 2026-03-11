@@ -55,10 +55,19 @@ sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d openclaw.example.com
 ```
 
-3) Vercel / Netlify
-- 选择仓库一键部署，Build 命令留空，Output 目录为根目录
+3) Vercel
+- 当前仓库已包含 `vercel.json` 与 `/api` 代理函数，可直接部署静态站点
+- 在 Vercel 项目中设置两个环境变量：
+  - `CHESS_SERVICE_URL`：现有 chess 服务地址，例如 `https://your-chess.example.com/`
+  - `GATEWAY_SERVICE_URL`：现有 gateway 服务地址，例如 `https://your-gateway.example.com/`
+- Build 命令留空，Root 目录为仓库根目录
+- 前端页面继续访问同源 `/api/chess/*` 与 `/api/*`，由 Vercel 代理到你的后端服务
+- 注意：房间状态、SSE 与对局循环仍依赖外部后端；不要把 `chess-server/gateway-server` 直接当作 Vercel 无状态函数运行
 
-4) Docker（便捷上线）
+4) Netlify
+- 仅适合纯静态内容；若要保留对战 API，请额外自行配置反向代理或独立后端
+
+5) Docker（便捷上线）
 ```bash
 cd docker
 docker build -t openclaw-cn-site ..
