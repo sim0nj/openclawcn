@@ -3,14 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>安装指南 · OpenClaw 中文站</title>
-  <meta name="description" content="OpenClaw 安装指南：5 分钟一键安装、配置向导、网关启动与验证。" />
-  <meta property="og:locale" content="zh_CN" />
-  <meta property="og:title" content="OpenClaw 安装指南" />
-  <meta property="og:description" content="一键脚本 + 配置向导：快速完成 OpenClaw 安装与网关验证。" />
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="OpenClaw 安装指南" />
-  <meta name="twitter:description" content="一键脚本 + 配置向导：快速完成 OpenClaw 安装与网关验证。" />
+  <title>部署与安装 · OpenClaw 中文站</title>
+  <meta name="description" content="OpenClaw 中文站部署文档：本地启动、Docker Compose、主机直装、域名与 HTTPS。" />
   <link rel="alternate" hreflang="zh-CN" href="./install.html" />
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
@@ -23,128 +17,148 @@
       </a>
       <nav class="nav-links">
         <a href="../">首页</a>
-        <a href="./install.html" class="active">安装</a>
+        <a href="./index.html">文档</a>
+        <a href="./install.html" class="active">部署</a>
         <a href="./usage.html">使用</a>
         <a href="./faq.html">FAQ</a>
-        <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a>
-        <a class="cta" href="#" target="_blank" rel="noopener">GitHub</a>
+        <a href="../chess/">对战</a>
       </nav>
     </div>
   </header>
 
   <main class="container doc">
     <aside class="sidebar">
-      <h4>安装目录</h4>
-      <a href="#requirements" class="active">系统要求</a>
-      <a href="#quickstart">一键安装</a>
-      <a href="#onboard">配置向导</a>
-      <a href="#gateway">启动网关</a>
-      <a href="#verify">验证与体检</a>
-      <a href="#optional">可选方案</a>
-      <a href="#uninstall">卸载/升级</a>
+      <h4>部署文档</h4>
+      <a href="#overview" class="active">架构概览</a>
+      <a href="#quickstart">快速启动</a>
+      <a href="#compose">Docker Compose</a>
+      <a href="#host">主机直装</a>
+      <a href="#vercel">Vercel 方案</a>
+      <a href="#domain">域名与 HTTPS</a>
+      <a href="#verify">验证清单</a>
     </aside>
     <article class="content">
-      <h1>OpenClaw 安装指南</h1>
-      <p class="note">按官方“快速开始”整理，优先推荐一键脚本与配置向导；Docker/源码等方式作为可选补充。</p>
+      <section class="doc-hero">
+        <span class="eyebrow">Deploy</span>
+        <h1>优先把四个服务跑齐，再谈域名和 HTTPS</h1>
+        <p>当前项目的完整能力依赖四个部分：静态站点、<code>gateway-server</code>、<code>chess-server</code>、示例 provider。只有静态页能开，不代表房间和对局可用；部署文档优先保证这四层一起联通。</p>
+      </section>
 
-      <h2 id="requirements">系统要求</h2>
-      <ul>
-        <li>Node.js ≥ 22</li>
-        <li>操作系统：macOS、Linux 或 Windows（推荐 WSL2）</li>
-        <li>可选：Brave Search API（启用网络搜索功能）</li>
+      <h2 id="overview">架构概览</h2>
+      <div class="mini-grid">
+        <section class="mini-card">
+          <h3>站点前端</h3>
+          <p>负责首页、文档页和对战界面。默认通过同源 <code>/api</code> 访问后端。</p>
+        </section>
+        <section class="mini-card">
+          <h3>Gateway</h3>
+          <p>负责 provider 路由、<code>/move</code> 转发和 <code>/metadata</code> 校验。</p>
+        </section>
+        <section class="mini-card">
+          <h3>Chess Server</h3>
+          <p>负责房间、私密令牌、裁判开赛和对局 SSE 流。</p>
+        </section>
+        <section class="mini-card">
+          <h3>Provider</h3>
+          <p>至少实现 <code>POST /move</code> 和 <code>GET /metadata</code>，否则无法入场。</p>
+        </section>
+      </div>
+
+      <h2 id="quickstart">快速启动</h2>
+      <p>第一次部署，直接用 Docker Compose 最稳。它会同时拉起静态站点、网关、房间服务和示例 bot。</p>
+<pre><code>git clone &lt;your-repo&gt;
+cd openclaw-cn-site
+docker compose -f docker/docker-compose.yml up -d --build
+</code></pre>
+      <ul class="lead-list">
+        <li>站点首页：<code>http://localhost/</code></li>
+        <li>对战页：<code>http://localhost/chess/</code></li>
+        <li>网关健康：<code>http://localhost/api/healthz</code></li>
       </ul>
 
-      <h2 id="quickstart">一键安装</h2>
-      <p>推荐使用官方脚本进行自动安装：</p>
-<pre><code>curl -fsSL https://openclaw.ai/install.sh | bash
-</code></pre>
-      <p>脚本会检测并安装 Node.js 与依赖，免去手动配置。</p>
-
-      <h2 id="onboard">配置向导</h2>
-      <p>安装后运行配置向导，完成网关、认证与聊天平台接入：</p>
-<pre><code>openclaw onboard --install-daemon
-</code></pre>
-      <ul>
-        <li>网关类型：本地或远程</li>
-        <li>AI 模型认证：OpenAI（OAuth/API Key）或 Anthropic（推荐 API Key，亦支持 claude setup-token）</li>
-        <li>聊天平台：WhatsApp 二维码、Telegram/Discord Bot Token 等</li>
-        <li>守护进程：macOS 使用 launchd，Linux/WSL2 使用 systemd</li>
+      <h2 id="compose">Docker Compose</h2>
+      <p>仓库自带 <code>docker/docker-compose.yml</code>，默认包含：</p>
+      <ul class="check-list">
+        <li><code>openclaw-cn-site</code>：Nginx 静态站点</li>
+        <li><code>chess</code>：房间与对局服务，监听容器内 <code>3100</code></li>
+        <li><code>gateway</code>：provider 网关，监听容器内 <code>3200</code></li>
+        <li><code>bot-py</code>：示例 provider，监听容器内 <code>5000</code></li>
       </ul>
-      <p>配置文件位置：</p>
-      <ul>
-        <li>主配置目录：~/.openclaw/</li>
-        <li>OAuth 凭证：~/.openclaw/credentials/oauth.json</li>
-        <li>认证配置：~/.openclaw/agents/&lt;agentId&gt;/agent/auth-profiles.json</li>
-      </ul>
-      <p>若在无显示器服务器部署，先在可用浏览器的机器完成 OAuth，再将 oauth.json 复制到服务器对应目录。</p>
+      <p>默认示例 provider 会通过环境变量 <code>PROVIDER_BOTPY=http://bot-py:5000/move</code> 注册到网关。接入自己的 provider 时，沿用同样的环境变量命名方式即可。</p>
 
-      <h2 id="gateway">启动网关</h2>
-      <p>网关负责处理所有消息：</p>
-<pre><code>openclaw gateway status
-openclaw gateway --port 18789
+      <h2 id="host">主机直装</h2>
+      <p>如果服务器拉 Docker Hub 慢，或者你更想用系统服务部署，可以采用主机直装：</p>
+<pre><code># Node 服务
+cd gateway-server &amp;&amp; npm ci --omit=dev
+cd ../chess-server &amp;&amp; npm ci --omit=dev
+
+# Python provider
+cd ../examples/chess-bot
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
 </code></pre>
-
-      <h2 id="verify">验证与体检</h2>
-<pre><code>openclaw status
-openclaw health
-openclaw security audit --deep
-</code></pre>
-      <p>若命令不可用，请检查 PATH 并返回配置向导补全授权。</p>
-
-      <h2 id="optional">可选方案</h2>
-      <p>以下为进阶/企业环境常见选项（如需）：</p>
-      <ul>
-        <li>容器化与编排：使用自建镜像与 Helm Chart</li>
-        <li>源码构建与离线安装：在内网镜像与包仓库下完成</li>
+      <p>生产环境建议用 <code>systemd</code> 管理 `gateway`、`chess`、`provider` 三个进程，再由 Nginx 反代：</p>
+      <ul class="check-list">
+        <li><code>/api/</code> -> <code>127.0.0.1:3200</code></li>
+        <li><code>/api/chess/</code> -> <code>127.0.0.1:3100</code></li>
+        <li>静态根目录 -> 项目根目录导出的站点文件</li>
       </ul>
 
-      <h2 id="package">包管理器安装</h2>
-      <p>若已在公共/私有仓库发布包，可按如下方式安装：</p>
-<pre><code># macOS (Homebrew)
-brew tap openclaw/tap
-brew install openclaw
+      <h2 id="vercel">Vercel 方案</h2>
+      <p>Vercel 适合部署前端和代理层，不适合原样承载当前有状态后端。推荐模式是：</p>
+      <ul class="lead-list">
+        <li>Vercel 部署静态站点和 <code>api/_proxy.js</code> 代理函数</li>
+        <li>外部主机运行 <code>gateway-server</code> 与 <code>chess-server</code></li>
+        <li>在 Vercel 环境变量里设置 <code>CHESS_SERVICE_URL</code> 和 <code>GATEWAY_SERVICE_URL</code></li>
+      </ul>
 
-# Debian/Ubuntu (APT)
-echo "deb [trusted=yes] https://repo.example.com/openclaw stable main" | sudo tee /etc/apt/sources.list.d/openclaw.list
-sudo apt update && sudo apt install openclaw
+      <h2 id="domain">域名与 HTTPS</h2>
+      <h3>HTTP 与 HTTPS 是两回事</h3>
+      <p>安全组里放行 <code>443</code> 不等于站点已经支持 HTTPS。要真正提供 HTTPS，Nginx 必须显式监听 <code>443 ssl</code> 并加载证书文件。</p>
 
-# RHEL/CentOS (YUM/DNF)
-sudo dnf config-manager --add-repo https://repo.example.com/openclaw/openclaw.repo
-sudo dnf install openclaw
-</code></pre>
-      <p>以上为模板仓库配置，请替换为真实仓库地址与 GPG Key。</p>
+      <h3>中国内地部署</h3>
+      <ul class="check-list">
+        <li>域名解析到中国内地 ECS 时，要注意备案要求。</li>
+        <li>阿里云控制台里改的是“当前实例绑定的安全组”，不是新建但未绑定的安全组。</li>
+        <li>用浏览器打不开时，先用 <code>telnet &lt;ip&gt; 80</code>、<code>telnet &lt;ip&gt; 443</code> 判断端口层是否通。</li>
+      </ul>
 
-      <h2 id="source">源码构建</h2>
-      <p>如需从源码构建（便于打补丁或内核定制）：</p>
-<pre><code>git clone https://github.com/your-org/openclaw.git
-cd openclaw
-# 选择你项目使用的语言/构建系统：
-# - Go:       make build
-# - Rust:     cargo build --release
-# - Node:     pnpm install && pnpm build
-# - Python:   pip install -r requirements.txt && python setup.py bdist
-</code></pre>
-      <p>请以实际仓库与构建脚本为准，并遵循公司代码审核与依赖镜像策略。</p>
+      <h3>正式证书</h3>
+      <p>开发测试阶段可以先用自签证书把 <code>443</code> 拉起来；生产环境建议换成正式证书，并把 <code>80</code> 跳转到 <code>443</code>。</p>
 
-      <h2 id="offline">离线安装</h2>
-      <ol>
-        <li>在有网环境打包二进制和依赖（容器镜像/包缓存）。</li>
-        <li>通过离线介质（U 盘/内网文件服务）传输到目标机器。</li>
-        <li>按 <strong>快速开始</strong> 或 <strong>包管理器</strong> 步骤安装；容器环境导入镜像：<code>docker load -i openclaw.tar</code>。</li>
-      </ol>
-      <p>如需企业级离线仓库（APT/YUM/NuGet/Nexus/Harbor），请参考 <a href="./faq.html">FAQ</a> 的“离线源搭建”。</p>
-
-      <p>如需 Kubernetes 部署或离线方案，可在 <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a> 获取社区清单。</p>
-
-      <h2 id="uninstall">卸载与升级</h2>
-<pre><code># 升级
-openclaw upgrade
-
-# 卸载（保留数据目录请先备份）
-openclaw stop
-openclaw uninstall
-</code></pre>
-      <p>生产环境升级前请在预生产验证并做好数据备份。</p>
+      <h2 id="verify">验证清单</h2>
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th>检查项</th>
+            <th>命令</th>
+            <th>预期结果</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>站点首页</td>
+            <td><code>curl -I http://127.0.0.1/</code></td>
+            <td>返回 <code>200 OK</code></td>
+          </tr>
+          <tr>
+            <td>网关健康</td>
+            <td><code>curl http://127.0.0.1/api/healthz</code></td>
+            <td>返回 <code>{"ok":true}</code></td>
+          </tr>
+          <tr>
+            <td>房间服务</td>
+            <td><code>curl http://127.0.0.1/api/chess/</code></td>
+            <td>返回服务描述 JSON</td>
+          </tr>
+          <tr>
+            <td>HTTPS 监听</td>
+            <td><code>ss -ltnp | grep 443</code></td>
+            <td>Nginx 出现在 <code>0.0.0.0:443</code></td>
+          </tr>
+        </tbody>
+      </table>
     </article>
   </main>
 

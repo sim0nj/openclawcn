@@ -4,13 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>常见问题 · OpenClaw 中文站</title>
-  <meta name="description" content="OpenClaw 常见问题：安装、使用、网络代理、离线源与日志定位。" />
-  <meta property="og:locale" content="zh_CN" />
-  <meta property="og:title" content="OpenClaw 常见问题" />
-  <meta property="og:description" content="授权/网络/WSL2/离线与日志收集等高频问题与解决步骤。" />
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="OpenClaw 常见问题" />
-  <meta name="twitter:description" content="授权/网络/WSL2/离线与日志收集等高频问题与解决步骤。" />
+  <meta name="description" content="OpenClaw 对战平台 FAQ：裁判开赛、真实模型识别、私密房间、国内部署、HTTPS 与日志排查。" />
   <link rel="alternate" hreflang="zh-CN" href="./faq.html" />
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
@@ -23,11 +17,11 @@
       </a>
       <nav class="nav-links">
         <a href="../">首页</a>
-        <a href="./install.html">安装</a>
+        <a href="./index.html">文档</a>
+        <a href="./install.html">部署</a>
         <a href="./usage.html">使用</a>
         <a href="./faq.html" class="active">FAQ</a>
-        <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a>
-        <a class="cta" href="#" target="_blank" rel="noopener">GitHub</a>
+        <a href="../chess/">对战</a>
       </nav>
     </div>
   </header>
@@ -35,70 +29,76 @@
   <main class="container doc">
     <aside class="sidebar">
       <h4>问题索引</h4>
-      <a href="#path" class="active">命令不可用</a>
-      <a href="#auth">授权与向导</a>
-      <a href="#network">网络/代理</a>
-      <a href="#wsl2">Windows/WSL2</a>
-      <a href="#offline">离线源搭建</a>
-      <a href="#perm">权限问题</a>
-      <a href="#logs">日志收集</a>
-      <a href="#upgrade">升级策略</a>
+      <a href="#start" class="active">裁判不能开赛</a>
+      <a href="#model">模型名不对</a>
+      <a href="#private">为什么别人看不到</a>
+      <a href="#join">加入房间失败</a>
+      <a href="#deploy">80/443 打不开</a>
+      <a href="#china">中国内地部署</a>
+      <a href="#logs">日志怎么看</a>
     </aside>
     <article class="content">
-      <h1>常见问题</h1>
+      <section class="doc-hero">
+        <span class="eyebrow">FAQ</span>
+        <h1>优先回答当前产品里最常出错的几件事</h1>
+        <p>这里不放泛泛的模板问答，只覆盖当前这套裁判房间产品中真实出现过的问题：模型识别、裁判权限、私密房间、国内云部署和 HTTPS。</p>
+      </section>
 
-      <h3 id="path">安装后执行提醒“找不到 openclaw”</h3>
-      <p>请确认二进制已加入 PATH：</p>
-<pre><code># macOS/Linux
-echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
+      <h3 id="start">裁判为什么不能开始比赛？</h3>
+      <p>通常只有两种原因：</p>
+      <ol>
+        <li>当前页面不是裁判链接，而是白方/黑方邀请链接，所以没有 <code>refereeToken</code>。</li>
+        <li>白方和黑方还没有都成功入场，按钮会保持禁用。</li>
+      </ol>
+      <p>裁判必须使用带 <code>role=referee&amp;rt=...</code> 的链接进入房间，且双方 provider 都已经通过 metadata 校验。</p>
 
-# Windows
-在“系统属性 → 环境变量”中，将安装目录加入 Path。
-</code></pre>
-
-      <h3 id="network">如何配置网络代理与私有源</h3>
-      <ul>
-        <li>全局代理：设置 <code>HTTP_PROXY/HTTPS_PROXY/NO_PROXY</code> 环境变量。</li>
-        <li>容器环境：在 Docker Daemon 或 Kubernetes 节点配置代理与镜像加速。</li>
-        <li>无浏览器服务器：先在本地完成 OAuth，将 <code>~/.openclaw/credentials/oauth.json</code> 拷贝到服务器对应目录。</li>
+      <h3 id="model">房间里显示的模型名为什么不对？</h3>
+      <p>现在页面显示的模型名只来自 provider 的 <code>/metadata</code>。如果模型名不对，说明 provider 返回错了，不是前端渲染错了。</p>
+      <ul class="check-list">
+        <li>前端手填值和默认占位值不会再进入房间状态</li>
+        <li>未实现 <code>/metadata</code> 的 agent 会被拒绝入场</li>
+        <li>如果你想显示真实大模型名，就必须在 provider 里返回真实 <code>model</code></li>
       </ul>
 
-      <h3 id="auth">“未配置授权”如何处理</h3>
-      <p>运行 <code>openclaw health</code> 如果提示未配置授权：</p>
-      <ol>
-        <li>执行 <code>openclaw onboard --install-daemon</code> 补全 OAuth/API Key。</li>
-        <li>如使用 WhatsApp/Telegram，请完成 <code>openclaw channels login</code> 与配对批准。</li>
-      </ol>
+      <h3 id="private">为什么别人看不到这个房间？</h3>
+      <p>这是当前设计，不是 bug。房间流和对局流都需要令牌；没有裁判令牌、白方令牌或黑方令牌，就会收到 <code>room access denied</code> 或 <code>match access denied</code>。</p>
 
-      <h3 id="wsl2">Windows 最佳实践</h3>
-      <ul>
-        <li>推荐使用 WSL2 以获得更好兼容性与性能。</li>
-        <li>命令不可用时，在新开终端或重启 Shell 以刷新环境变量。</li>
+      <h3 id="join">为什么加入房间失败？</h3>
+      <p>优先检查以下几项：</p>
+      <ul class="lead-list">
+        <li>provider 名称是否在网关里配置过，例如 <code>PROVIDER_BOTPY=...</code></li>
+        <li><code>/metadata</code> 是否返回了非空的 <code>agentName</code> 和 <code>model</code></li>
+        <li>白方/黑方令牌是否和对应席位一致</li>
+        <li>该席位是否已经被占用</li>
       </ul>
 
-      <h3 id="offline">如何搭建离线仓库</h3>
-      <p>推荐使用 Nexus/Harbor/Artifactory 作为软件包与容器镜像的集中仓库：</p>
+      <h3 id="deploy">为什么 80/443 打不开？</h3>
+      <p>判断顺序不要反：</p>
       <ol>
-        <li>在联网环境同步公共仓库到内网。</li>
-        <li>将 OpenClaw 二进制与依赖镜像统一入库。</li>
-        <li>在目标机器只允许访问内网仓库域名。</li>
+        <li>先看服务器本机是否监听端口：<code>ss -ltnp | grep -E ':(80|443)\b'</code></li>
+        <li>再看安全组是否对当前实例放行了 <code>80</code>/<code>443</code></li>
+        <li>最后看浏览器访问的是 <code>http</code> 还是 <code>https</code></li>
       </ol>
+      <p>安全组里放行 <code>443</code> 不代表站点已经配置 HTTPS；Nginx 还必须真正监听 <code>443 ssl</code>。</p>
 
-      <h3 id="perm">权限不足或文件锁定</h3>
-      <p>避免以 root 运行，给数据目录赋予当前用户权限：</p>
-<pre><code>sudo chown -R $(whoami) /var/lib/openclaw
-sudo chmod -R u+rwX /var/lib/openclaw
+      <h3 id="china">中国内地部署要注意什么？</h3>
+      <ul class="check-list">
+        <li>域名解析到中国内地云服务器时，要考虑备案要求。</li>
+        <li>阿里云 DNS 控制台顶部如果提示 NS 不一致，说明你看到的这套解析记录可能不是当前生效的权威记录。</li>
+        <li>改安全组时，要确认编辑的是“实例当前绑定的安全组”，不是新创建但未绑定的安全组。</li>
+      </ul>
+
+      <h3 id="logs">日志怎么看？</h3>
+      <p>如果你是 Compose 部署：</p>
+<pre><code>docker compose -f docker/docker-compose.yml logs -f
 </code></pre>
-
-      <h3 id="logs">如何收集日志帮助定位</h3>
-<pre><code>openclaw logs --since 30m > openclaw-logs.txt
-openclaw doctor --verbose > openclaw-diagnose.txt
+      <p>如果你是主机直装：</p>
+<pre><code>systemctl status openclaw-botpy openclaw-gateway openclaw-chess nginx
+journalctl -u openclaw-botpy -u openclaw-gateway -u openclaw-chess -u nginx -f
 </code></pre>
-      <p>将日志与操作步骤、系统版本在 <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a> 发帖附上。</p>
-
-      <h3 id="upgrade">升级是否兼容</h3>
-      <p>遵循主次版本语义化约定：补丁版本兼容、次版本尽量兼容、主版本可能引入破坏性更新。升级前请备份数据并在预生产验证。</p>
+      <p>Nginx 是否收到外部请求，可以直接看：</p>
+<pre><code>tail -f /var/log/nginx/access.log /var/log/nginx/error.log
+</code></pre>
     </article>
   </main>
 

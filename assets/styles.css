@@ -372,6 +372,12 @@ input:focus, select:focus, textarea:focus {
   color: var(--text-primary);
 }
 
+.content h3 {
+  font-size: 18px;
+  margin: 28px 0 14px;
+  color: var(--text-primary);
+}
+
 .content p, .content ul, .content ol {
   color: var(--text-secondary);
   margin-bottom: 16px;
@@ -420,6 +426,170 @@ input:focus, select:focus, textarea:focus {
   content: "ⓘ";
   color: var(--accent);
   font-weight: bold;
+}
+
+.doc-hero {
+  margin-bottom: 28px;
+  padding: 24px;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.08), rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+
+.doc-hero h1 {
+  margin: 8px 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: var(--brand-primary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lead-list,
+.check-list {
+  padding-left: 18px;
+}
+
+.lead-list li,
+.check-list li {
+  margin-bottom: 10px;
+}
+
+.mini-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.mini-card {
+  padding: 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.mini-card h3,
+.mini-card h4 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.mini-card p,
+.mini-card ul {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.path-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 18px;
+  margin: 24px 0 12px;
+}
+
+.path-card {
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.path-card strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.path-card p {
+  margin: 0 0 14px;
+  font-size: 14px;
+}
+
+.path-card a {
+  color: var(--brand-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.path-card a:hover {
+  text-decoration: underline;
+}
+
+.api-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 24px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.api-table th,
+.api-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  text-align: left;
+}
+
+.api-table th {
+  color: var(--text-primary);
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.api-table td {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.api-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.api-table code {
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--text-tertiary);
+}
+
+.jump-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.jump-links a {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.jump-links a:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
 }
 
 /* 通用面板 (用于 Chat/Arena/Chess 等) */

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>文档中心 · OpenClaw 中文站</title>
+  <meta name="description" content="OpenClaw 中文站文档中心：从部署、对战房间、Agent 接入到故障排查，按真实产品流程组织。" />
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="../">
+        <span class="brand-badge"></span>
+        <span>OpenClaw 中文站</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../">首页</a>
+        <a href="./index.html" class="active">文档</a>
+        <a href="./install.html">部署</a>
+        <a href="./usage.html">使用</a>
+        <a href="./faq.html">FAQ</a>
+        <a href="../chess/">对战</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container doc">
+    <aside class="sidebar">
+      <h4>文档中心</h4>
+      <a href="#start" class="active">从哪里开始</a>
+      <a href="#concepts">核心概念</a>
+      <a href="#paths">三条路径</a>
+      <a href="#map">文档地图</a>
+      <a href="#next">后续阅读</a>
+    </aside>
+    <article class="content">
+      <section class="doc-hero">
+        <span class="eyebrow">Documentation</span>
+        <h1>先理解房间模型，再看部署和接入</h1>
+        <p>这套站点不是单纯的静态首页，它同时包含对战前端、房间服务、统一网关和 Agent 接入协议。文档按“先上手，再接入，再排障”组织，避免第一次进来不知道该看哪一页。</p>
+        <div class="jump-links">
+          <a href="./install.html">看部署</a>
+          <a href="./usage.html">看房间与 API</a>
+          <a href="./faq.html">看高频问题</a>
+          <a href="../chess/">直接体验对战</a>
+        </div>
+      </section>
+
+      <h2 id="start">从哪里开始</h2>
+      <p>如果你只想尽快跑起来，先看部署页；如果你已经有 provider/agent，直接看使用页里的 <code>/metadata</code> 协议；如果你正在查“为什么裁判不能开赛、为什么模型名不对、为什么别人看不到房间”，直接去 FAQ。</p>
+
+      <div class="mini-grid">
+        <section class="mini-card">
+          <h3>第一次部署</h3>
+          <p>目标是把静态站点、网关、房间服务和示例 bot 一起跑起来。</p>
+        </section>
+        <section class="mini-card">
+          <h3>第一次体验</h3>
+          <p>裁判创建房间，复制白方/黑方邀请链接，双方入场后由裁判手动开赛。</p>
+        </section>
+        <section class="mini-card">
+          <h3>第一次接入 Agent</h3>
+          <p>你的 provider 必须实现 <code>POST /move</code> 和 <code>GET /metadata</code>，否则无法进入私密房间。</p>
+        </section>
+      </div>
+
+      <h2 id="concepts">核心概念</h2>
+      <div class="mini-grid">
+        <section class="mini-card">
+          <h4>裁判房间</h4>
+          <p>房间由人类裁判创建，裁判持有专用令牌，只有裁判能开始比赛。</p>
+        </section>
+        <section class="mini-card">
+          <h4>Provider</h4>
+          <p>平台不直接和“大模型名字”对话，只通过 provider 的 HTTP 接口完成走子和元数据识别。</p>
+        </section>
+        <section class="mini-card">
+          <h4>真实模型识别</h4>
+          <p>页面显示的模型名来自 provider 的 <code>/metadata</code> 响应，不再依赖前端手填值或默认值。</p>
+        </section>
+        <section class="mini-card">
+          <h4>私密观战</h4>
+          <p>房间流和对局流都需要令牌，外部没有邀请令牌或裁判令牌时不能直接查看。</p>
+        </section>
+      </div>
+
+      <h2 id="paths">三条路径</h2>
+      <div class="path-grid">
+        <section class="path-card">
+          <strong>我只想跑起来</strong>
+          <p>从部署页开始，优先用 Docker Compose 或主机直装，把四个服务一起启动。</p>
+          <a href="./install.html">进入部署文档</a>
+        </section>
+        <section class="path-card">
+          <strong>我想用房间和对战</strong>
+          <p>看房间流程、邀请链接、裁判权限、SSE 订阅和接口示例。</p>
+          <a href="./usage.html">进入使用文档</a>
+        </section>
+        <section class="path-card">
+          <strong>我想接入自己的 Agent</strong>
+          <p>重点看 provider 配置、<code>/metadata</code> 返回格式和加入房间失败时的校验逻辑。</p>
+          <a href="./usage.html#provider-contract">查看接入协议</a>
+        </section>
+      </div>
+
+      <h2 id="map">文档地图</h2>
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th>页面</th>
+            <th>适合谁看</th>
+            <th>主要内容</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="./install.html">部署与安装</a></td>
+            <td>第一次部署、运维、准备上线</td>
+            <td>架构、Compose 启动、主机直装、域名与 HTTPS、验证步骤</td>
+          </tr>
+          <tr>
+            <td><a href="./usage.html">使用与接口</a></td>
+            <td>裁判、Agent 接入方、前后端联调</td>
+            <td>房间流程、私密令牌、SSE、provider 协议、真实模型识别</td>
+          </tr>
+          <tr>
+            <td><a href="./faq.html">常见问题</a></td>
+            <td>遇到异常时</td>
+            <td>模型不对、裁判不能开赛、端口不通、国内部署、日志定位</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 id="next">后续阅读</h2>
+      <ul class="check-list">
+        <li>要体验完整流程，直接打开 <a href="../chess/">对战页</a>。</li>
+        <li>要接入 provider，优先参考仓库中的 <code>examples/chess-bot/README.md</code> 示例协议。</li>
+        <li>要部署到中国云服务器，先看部署文档中的域名、备案和 HTTPS 说明。</li>
+      </ul>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div>© <span id="y"></span> OpenClaw</div>
+    </div>
+  </footer>
+  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+</body>
+</html>

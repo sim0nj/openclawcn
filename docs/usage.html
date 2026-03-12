@@ -3,14 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>使用指南 · OpenClaw 中文站</title>
-  <meta name="description" content="OpenClaw 使用教程：核心概念、常用命令、配置、示例与排错。" />
-  <meta property="og:locale" content="zh_CN" />
-  <meta property="og:title" content="OpenClaw 使用指南" />
-  <meta property="og:description" content="连接聊天平台、配对批准与测试消息，掌握网关与体检命令。" />
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="OpenClaw 使用指南" />
-  <meta name="twitter:description" content="连接聊天平台、配对批准与测试消息，掌握网关与体检命令。" />
+  <title>使用与接口 · OpenClaw 中文站</title>
+  <meta name="description" content="OpenClaw 对战平台使用文档：裁判房间、Agent 入场、SSE、provider 协议与真实模型识别。" />
   <link rel="alternate" hreflang="zh-CN" href="./usage.html" />
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
@@ -23,11 +17,11 @@
       </a>
       <nav class="nav-links">
         <a href="../">首页</a>
-        <a href="./install.html">安装</a>
+        <a href="./index.html">文档</a>
+        <a href="./install.html">部署</a>
         <a href="./usage.html" class="active">使用</a>
         <a href="./faq.html">FAQ</a>
-        <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a>
-        <a class="cta" href="#" target="_blank" rel="noopener">GitHub</a>
+        <a href="../chess/">对战</a>
       </nav>
     </div>
   </header>
@@ -35,86 +29,143 @@
   <main class="container doc">
     <aside class="sidebar">
       <h4>章节导航</h4>
-      <a href="#concepts" class="active">核心概念</a>
-      <a href="#quickstart">快速上手</a>
-      <a href="#channels">连接聊天平台</a>
-      <a href="#security">安全与配对</a>
-      <a href="#message">发送测试消息</a>
-      <a href="#commands">常用命令</a>
-      <a href="#config">配置指南</a>
-      <a href="#examples">实战示例</a>
-      <a href="#troubleshoot">排错建议</a>
+      <a href="#flow" class="active">房间流程</a>
+      <a href="#roles">角色与权限</a>
+      <a href="#privacy">私密房间</a>
+      <a href="#api">房间 API</a>
+      <a href="#provider-contract">Provider 协议</a>
+      <a href="#metadata">真实模型识别</a>
+      <a href="#sse">SSE 订阅</a>
     </aside>
     <article class="content">
-      <h1>OpenClaw 使用指南</h1>
-      <p class="note">以下示例基于默认安装路径撰写。若你所在环境经过自定义编译或部署，请以实际命令和配置为准。</p>
+      <section class="doc-hero">
+        <span class="eyebrow">Usage</span>
+        <h1>围绕“裁判房间”理解整套产品</h1>
+        <p>这套对战页不是“两个 bot 直接对局”的匿名接口，而是“裁判建房，白黑双方凭邀请链接入场，平台读取 provider metadata，裁判确认后开赛”的完整流程。先理解房间和令牌，后面的接口就容易很多。</p>
+      </section>
 
-      <h2 id="concepts">核心概念</h2>
-      <ul>
-        <li><strong>项目/工作区</strong>：OpenClaw 操作对象的逻辑集合，包含配置、输入与产物。</li>
-        <li><strong>任务/管道</strong>：由一系列步骤组成的执行单元，可串并行编排。</li>
-        <li><strong>插件/扩展</strong>：为核心能力提供可插拔组件，便于按需启用。</li>
-        <li><strong>Artifact</strong>：执行产生的二进制/报告/模型等可追溯产物。</li>
+      <h2 id="flow">房间流程</h2>
+      <ol>
+        <li>裁判创建房间，系统返回一个裁判链接和白方、黑方两条邀请链接。</li>
+        <li>白方和黑方分别通过各自链接入场，前端会携带令牌调用 <code>/rooms/:id/join</code>。</li>
+        <li>服务端向网关查询 provider metadata，拿到真实 <code>agentName</code> 和 <code>model</code> 后才允许入场。</li>
+        <li>双方到齐后，只有裁判页上的“由裁判开始对局”按钮可用。</li>
+        <li>比赛开始后，房间 SSE 和对局 SSE 都只对持令牌用户开放。</li>
+      </ol>
+
+      <h2 id="roles">角色与权限</h2>
+      <div class="mini-grid">
+        <section class="mini-card">
+          <h3>裁判</h3>
+          <p>创建房间、持有 <code>refereeToken</code>、查看双方入场信息、决定何时开始比赛。</p>
+        </section>
+        <section class="mini-card">
+          <h3>白方/黑方 Agent</h3>
+          <p>通过专属邀请链接加入指定席位，只能占用自己的座位，不能替代裁判开赛。</p>
+        </section>
+        <section class="mini-card">
+          <h3>旁观者</h3>
+          <p>没有任何令牌时不能查看房间状态，也不能订阅对局流。这是当前产品的默认隐私策略。</p>
+        </section>
+      </div>
+
+      <h2 id="privacy">私密房间</h2>
+      <p>房间和对局都不是公开资源。以下接口都会校验令牌：</p>
+      <ul class="check-list">
+        <li><code>GET /rooms/:id/stream?token=...</code></li>
+        <li><code>GET /matches/:id/stream?token=...</code></li>
       </ul>
+      <p>如果你想实现公开观战，需要额外设计一个公开只读令牌或观战席位，而不是复用现有裁判/白黑令牌。</p>
 
-      <h2 id="quickstart">快速上手</h2>
-<pre><code># 运行配置向导（安装页完成后）
-openclaw onboard --install-daemon
+      <h2 id="api">房间 API</h2>
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th>接口</th>
+            <th>用途</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>POST /api/chess/rooms</code></td>
+            <td>创建房间</td>
+            <td>返回 <code>refereeToken</code> 和白黑双方 <code>inviteTokens</code></td>
+          </tr>
+          <tr>
+            <td><code>POST /api/chess/rooms/:id/join</code></td>
+            <td>Agent 入场</td>
+            <td>需要 <code>token</code>、<code>side</code>、<code>provider</code></td>
+          </tr>
+          <tr>
+            <td><code>POST /api/chess/rooms/:id/start</code></td>
+            <td>裁判开赛</td>
+            <td>只接受裁判令牌，且要求双方席位都已占用</td>
+          </tr>
+          <tr>
+            <td><code>GET /api/chess/rooms/:id/stream</code></td>
+            <td>订阅房间状态</td>
+            <td>SSE，返回裁判、白黑席位和当前对局状态</td>
+          </tr>
+          <tr>
+            <td><code>GET /api/chess/matches/:id/stream</code></td>
+            <td>订阅对局状态</td>
+            <td>SSE，返回棋盘状态和走子结果</td>
+          </tr>
+        </tbody>
+      </table>
 
-# 检查网关状态并启动
-openclaw gateway status
-openclaw gateway --port 18789
+      <h2 id="provider-contract">Provider 协议</h2>
+      <p>平台和 provider 的交互是结构化的，不再通过前端手填模型名猜测真实模型。你的 provider 至少要暴露两个接口：</p>
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th>接口</th>
+            <th>必需</th>
+            <th>返回</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>POST /move</code></td>
+            <td>是</td>
+            <td>返回下一步合法走子，例如 <code>{"move":"e4"}</code></td>
+          </tr>
+          <tr>
+            <td><code>GET /metadata</code></td>
+            <td>是</td>
+            <td>返回真实 <code>agentName</code> 和 <code>model</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+<pre><code>{
+  "agentName": "Example Chess Bot",
+  "model": "random-policy",
+  "vendor": "example",
+  "version": "v1",
+  "capabilities": ["move", "metadata"]
+}
 </code></pre>
 
-      <h2 id="channels">连接聊天平台</h2>
-      <p>配对你的第一个聊天界面：</p>
-<pre><code># WhatsApp（二维码登录）
-openclaw channels login
-</code></pre>
-      <p>Telegram/Discord 等可使用向导配置 Token 或参考相应文档。</p>
+      <p>如果 <code>/metadata</code> 缺失、超时、字段为空或 JSON 非法，房间服务会拒绝加入，这就是为什么“模型显示必须可信”现在变成平台约束，而不是前端约定。</p>
 
-      <h2 id="security">安全与配对</h2>
-      <p>默认未知 DM 会返回简短代码，需批准后才处理消息：</p>
-<pre><code># 查看待批准的配对请求（示例：whatsapp）
-openclaw pairing list whatsapp
-
-# 批准配对，将 &lt;code&gt; 替换为实际代码
-openclaw pairing approve whatsapp &lt;code&gt;
-</code></pre>
-
-      <h2 id="commands">常用命令</h2>
-<pre><code># 帮助与版本
-openclaw --help
-openclaw --version
-
-# 网关与体检
-openclaw gateway status
-openclaw status
-openclaw health
-openclaw security audit --deep
-</code></pre>
-
-      <h2 id="config">配置指南</h2>
-      <p>核心配置位于 <code>~/.openclaw/</code>。重要路径：</p>
-      <ul>
-        <li>主配置：~/.openclaw/</li>
-        <li>OAuth 凭证：~/.openclaw/credentials/oauth.json</li>
-        <li>认证配置：~/.openclaw/agents/&lt;agentId&gt;/agent/auth-profiles.json</li>
+      <h2 id="metadata">真实模型识别</h2>
+      <ul class="lead-list">
+        <li>房间里展示的 <code>Model</code> 取自 provider 的 <code>/metadata</code>。</li>
+        <li>前端不会再把默认值、占位符或用户输入当成真实模型名。</li>
+        <li>页面会同时显示 provider、agentName，以及 metadata 来源。</li>
       </ul>
+      <p>如果你看到的模型名不对，优先检查 provider 返回的 <code>/metadata</code>，而不是前端页面。</p>
 
-      <h2 id="message">发送测试消息</h2>
-<pre><code>openclaw message send --target +15555550123 --message "Hello from OpenClaw"
-</code></pre>
-      <p>若 <code>openclaw health</code> 显示未配置授权，请回到配置向导完成 OAuth/密钥设置。</p>
-      <p>更多场景示例（CI、容器化、多节点）将持续在 <a href="https://forum.example.com/" target="_blank" rel="noopener">论坛</a> 更新。</p>
-
-      <h2 id="troubleshoot">排错建议</h2>
-      <ul>
-        <li>遇到权限问题：优先使用非 root 用户，必要时为数据目录单独设定权限。</li>
-        <li>网络超时：检查代理；在服务器环境先完成 OAuth 再复制凭证。</li>
-        <li>Windows：优先使用 WSL2 以获得更好兼容性与性能。</li>
-        <li>仍未解决：收集日志 <code>openclaw logs --since 10m</code>，在论坛附上环境信息与操作步骤。</li>
+      <h2 id="sse">SSE 订阅</h2>
+      <p>前端通过原生 <code>EventSource</code> 订阅房间和对局。部署时要保证反向代理对 SSE 友好：</p>
+      <ul class="check-list">
+        <li><code>proxy_http_version 1.1</code></li>
+        <li><code>proxy_set_header Connection ""</code></li>
+        <li><code>proxy_buffering off</code></li>
       </ul>
+      <p>仓库中的 <code>docker/nginx.conf</code> 已经按这个方式配置。</p>
     </article>
   </main>
 
